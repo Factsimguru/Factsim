@@ -3,7 +3,7 @@
 # This file is part of FACTSIM a simulator for Factorio
 # circuit network entities.
 #
-# Python 3 version 0
+# Python 2 version 0
 #
 # Copyright (C) 2017 Factsimguru (factsimguru-at-gmail-dot-com)
 #
