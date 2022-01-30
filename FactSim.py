@@ -51,6 +51,18 @@ def open_blueprint(filename=None):
     bpdict = json.loads(jsonstring)
     return bpdict
 
+
+class Signal():
+    """Object to manipulate signals."""
+    def __init__(self, dictionary):
+        self.name = dictionary.get('signal').get('name')
+        self.count = dictionary.get('count')
+        self.kind = dictionary.get('signal').get('type')
+        self.index = dictionary.get('index')
+    def __str__(self):
+        return "{} = {}".format(self.name, self.count)
+
+
 class Entity():
     """Generic Factsim entity.
 
@@ -69,42 +81,114 @@ class Entity():
 
 
 class Connected_Entity(Entity):
-    """Any entity that has connections"""
+    """Any entity that can have connections"""
     def __init__(self,dictionary):
         super().__init__(dictionary)
-        self.connections = dictionary['connections']
-        self.step = 0
+        self.connections = dictionary.get('connections')
+        self.tick = 0
         self.inputs = []
         self.outputs = []
-        self.connectIN = self.connections.get('1')
-        self.connectOUT = self.connections.get('2')
+        if self.connections:
+            self.connect1 = self.connections.get('1')
+            self.connect2 = self.connections.get('2')
+        self.connectIN = {}
+        self.connectOUT = {}
+        
+    def advance(self):
+        raise NotImplementedError
 
+    def get_output(self, tick):
+        while len(self.outputs) < tick + 1:
+            self.advance()
+        return self.outputs[tick]
 
 
 class Electric_pole(Connected_Entity):
-    """Any pole of any size, is a subclass of Connected_Entity"""
+    """Any pole of any size, is a subclass of Connected_Entity."""
 
     def __init__(self, dictionary):
         super().__init__(dictionary)
+    def advance(self):
+        pass
 
+
+class Constant_Combinator(Connected_Entity):
+    """Constant combinator."""
+    
+    def __init__(self, dictionary):
+        super().__init__(dictionary)
+        self.direction = dictionary.get('direction')
+        self.c_behavior = dictionary.get('control_behavior').get('filters')
+        self.connectOUT = self.connect1
+        
+    def advance(self):
+        self.outputs += [[Signal(f) for f in self.c_behavior]]
+
+
+
+class Decider_Combinator(Connected_Entity):
+    """Decider combinator, given a condition decides if a signal must output"""
+    
+    def __init__(self, dictionary):
+        super().__init__(dictionary)
+        self.direction = dictionary.get('direction')
+        self.c_behavior = dictionary.get('control_behavior')
+        self.connectIN = self.connect1
+        self.connectOUT = self.connect2
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class Arithmetic_Combinator(Connected_Entity):
+    """Arithmetic combinator, given inputs and operation generates output"""
+    
+    def __init__(self, dictionary):
+        super().__init__(dictionary)
+        self.direction = dictionary.get('direction')
+        self.c_behavior = dictionary.get('control_behavior')
+        self.connectIN = self.connect1
+        self.connectOUT = self.connect2
 
 
 class Factsimcmd():
-    """Class holding all the Factsim simulation"""
+    """Class holding all the Factsim simulation."""
+
     def __init__(self):
         self.blueprint = open_blueprint()
         self.Entities = []
         self.bpEntities = []
 
     def create_entities(self):
-        """Parse the blueprint entities into objects and fill the Entities list"""
+        """Parse the blueprint into objects. Fill the Entities list."""
         self.bpEntities = self.blueprint['blueprint']['entities']
         genericentities = [Entity(e) for e in self.bpEntities]
         for e in genericentities:
-            if 'pole' in e.name.split('-'): 
+            if 'pole' in e.name.split('-') or e.name == 'substation':
                 self.Entities += [Electric_pole(e.dictionary)]
+            elif e.name == 'constant-combinator':
+                self.Entities += [Constant_Combinator(e.dictionary)]
+            elif e.name == 'decider-combinator':
+                self.Entities += [Decider_Combinator(e.dictionary)]
+            elif e.name == 'arithmetic-combinator':
+                self.Entities += [Arithmetic_Combinator(e.dictionary)]
             else:
                 self.Entities += [e]
+
 
 f = Factsimcmd()
 f.create_entities()
