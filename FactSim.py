@@ -86,8 +86,9 @@ class Entity():
 
 class Connected_Entity(Entity):
     """Any entity that can have connections"""
-    def __init__(self,dictionary):
+    def __init__(self, dictionary, simulation):
         super().__init__(dictionary)
+        self.simulation = simulation
         self.connections = dictionary.get('connections')
         self.tick = 0
         self.inputs = []
@@ -110,22 +111,23 @@ class Connected_Entity(Entity):
 class Electric_pole(Connected_Entity):
     """Any pole of any size, is a subclass of Connected_Entity."""
 
-    def __init__(self, dictionary):
-        super().__init__(dictionary)
+    def __init__(self, dictionary, simulation):
+        super().__init__(dictionary, simulation)
     def advance(self):
         pass
 
 
 class Constant_Combinator(Connected_Entity):
-    """Constant combinator."""
+    """Constant combinator, outputs constant signal."""
     
-    def __init__(self, dictionary):
-        super().__init__(dictionary)
+    def __init__(self, dictionary, simulation):
+        super().__init__(dictionary, simulation)
         self.direction = dictionary.get('direction')
         self.c_behavior = dictionary.get('control_behavior').get('filters')
         self.connectOUT = self.connect1
         
     def advance(self):
+        self.tick += 1
         self.outputs += [[Signal(f) for f in self.c_behavior]]
 
 
@@ -133,27 +135,32 @@ class Constant_Combinator(Connected_Entity):
 class Decider_Combinator(Connected_Entity):
     """Decider combinator, given a condition decides if a signal must output"""
     
-    def __init__(self, dictionary):
-        super().__init__(dictionary)
+    def __init__(self, dictionary, simulation):
+        super().__init__(dictionary, simulation)
         self.direction = dictionary.get('direction')
         self.c_behavior = dictionary.get('control_behavior')
         self.connectIN = self.connect1
         self.connectOUT = self.connect2
-
+        self.red_input = self.connectIN.get('red')
+        self.green_input = self.connectIN.get('green')
+        #on first tick will never output anything
+        self.tick += 1
+        self.outputs = [[]]
+        self.inputs = [[]]
 
     def advance(self):
-
-        red_input = self.connectIN.get('red')
-        green_input = self.connectIN.get('green')
-
-       # if red_input:
-       #     for e in red_input:
-       #         self.inputs
-
-
+        self.inputs += [[]]
+        if self.red_input:
+            for e in self.red_input:
+                self.inputs[self.tick] += [self.simulation.get_entity(e.get('entity_id')).get_output(self.tick - 1)]
+        if self.green_input:
+            for e in self.green_input:
+                self.inputs[self.tick] += [self.simulation.get_entity(e.get('entity_id')).get_output(self.tick - 1)]
 
 
+        self.outputs += ['output']
 
+        self.tick +=1
 
 
 
@@ -168,12 +175,13 @@ class Decider_Combinator(Connected_Entity):
 class Arithmetic_Combinator(Connected_Entity):
     """Arithmetic combinator, given inputs and operation generates output"""
     
-    def __init__(self, dictionary):
-        super().__init__(dictionary)
+    def __init__(self, dictionary, simulation):
+        super().__init__(dictionary, simulation)
         self.direction = dictionary.get('direction')
         self.c_behavior = dictionary.get('control_behavior')
         self.connectIN = self.connect1
         self.connectOUT = self.connect2
+
 
 
 class Factsimcmd():
@@ -191,13 +199,13 @@ class Factsimcmd():
         genericentities = [Entity(e) for e in self.bpEntities]
         for e in genericentities:
             if 'pole' in e.name.split('-') or e.name == 'substation':
-                self.Entities += [Electric_pole(e.dictionary)]
+                self.Entities += [Electric_pole(e.dictionary, self)]
             elif e.name == 'constant-combinator':
-                self.Entities += [Constant_Combinator(e.dictionary)]
+                self.Entities += [Constant_Combinator(e.dictionary, self)]
             elif e.name == 'decider-combinator':
-                self.Entities += [Decider_Combinator(e.dictionary)]
+                self.Entities += [Decider_Combinator(e.dictionary, self)]
             elif e.name == 'arithmetic-combinator':
-                self.Entities += [Arithmetic_Combinator(e.dictionary)]
+                self.Entities += [Arithmetic_Combinator(e.dictionary, self)]
             else:
                 self.Entities += [e]
 
