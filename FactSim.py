@@ -44,11 +44,15 @@ def open_blueprint(filename=None):
         root = tk.Tk()
         root.withdraw()
         filename = tkinter.filedialog.askopenfilename()
+        print("opening: {} from filedialog".format(filename))
+    else:
+        print("opening: {}".format(filename))
     file = open(filename, encoding='utf-8')
     jsonstring64 = file.read()[1:]
     jsonstringdata = base64.b64decode(jsonstring64)
     jsonstring = zlib.decompress(jsonstringdata)
     bpdict = json.loads(jsonstring)
+    file.close()
     return bpdict
 
 
@@ -137,7 +141,14 @@ class Decider_Combinator(Connected_Entity):
         self.connectOUT = self.connect2
 
 
+    def advance(self):
 
+        red_input = self.connectIN.get('red')
+        green_input = self.connectIN.get('green')
+
+       # if red_input:
+       #     for e in red_input:
+       #         self.inputs
 
 
 
@@ -168,10 +179,11 @@ class Arithmetic_Combinator(Connected_Entity):
 class Factsimcmd():
     """Class holding all the Factsim simulation."""
 
-    def __init__(self):
-        self.blueprint = open_blueprint()
+    def __init__(self, filename=None):
+        self.blueprint = open_blueprint(filename=filename)
         self.Entities = []
         self.bpEntities = []
+        self.create_entities()
 
     def create_entities(self):
         """Parse the blueprint into objects. Fill the Entities list."""
@@ -189,6 +201,8 @@ class Factsimcmd():
             else:
                 self.Entities += [e]
 
+    def get_entity(self, n):
+        """Get an entity by number"""
+        return self.Entities[n-1]
 
 f = Factsimcmd()
-f.create_entities()
