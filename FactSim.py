@@ -36,7 +36,10 @@ import time
 
 
 def open_blueprint(filename=None):
-    """Open a blueprint by filename or prompting the user for one."""
+    """Open a blueprint by filename or prompting the user for one.
+
+    Return a dictionary of the blueprint contents
+    """
     if not filename:
         root = tk.Tk()
         root.withdraw()
@@ -46,6 +49,62 @@ def open_blueprint(filename=None):
     jsonstringdata = base64.b64decode(jsonstring64)
     jsonstring = zlib.decompress(jsonstringdata)
     bpdict = json.loads(jsonstring)
-    #print(bpdict['blueprint']['entities'])
-    for entity in bpdict['blueprint']['entities']:
-        print(entity)
+    return bpdict
+
+class Entity():
+    """Generic Factsim entity.
+
+    Generated from a entity dictionary from a blueprint
+    """
+
+    def __init__(self, dictionary):
+        self.dictionary = dictionary
+        self.entity_N = dictionary['entity_number']
+        self.name = dictionary['name']
+        self.position = dictionary['position']
+
+    def __str__(self):
+
+        return 'Entity nr {:0>3d} - {}'.format(self.entity_N,  self.name)
+
+
+class Connected_Entity(Entity):
+    """Any entity that has connections"""
+    def __init__(self,dictionary):
+        super().__init__(dictionary)
+        self.connections = dictionary['connections']
+        self.step = 0
+        self.inputs = []
+        self.outputs = []
+        self.connectIN = self.connections.get('1')
+        self.connectOUT = self.connections.get('2')
+
+
+
+class Electric_pole(Connected_Entity):
+    """Any pole of any size, is a subclass of Connected_Entity"""
+
+    def __init__(self, dictionary):
+        super().__init__(dictionary)
+
+
+
+class Factsimcmd():
+    """Class holding all the Factsim simulation"""
+    def __init__(self):
+        self.blueprint = open_blueprint()
+        self.Entities = []
+        self.bpEntities = []
+
+    def create_entities(self):
+        """Parse the blueprint entities into objects and fill the Entities list"""
+        self.bpEntities = self.blueprint['blueprint']['entities']
+        genericentities = [Entity(e) for e in self.bpEntities]
+        for e in genericentities:
+            if 'pole' in e.name.split('-'): 
+                self.Entities += [Electric_pole(e.dictionary)]
+            else:
+                self.Entities += [e]
+
+f = Factsimcmd()
+f.create_entities()
