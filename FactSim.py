@@ -138,7 +138,13 @@ class Decider_Combinator(Connected_Entity):
     def __init__(self, dictionary, simulation):
         super().__init__(dictionary, simulation)
         self.direction = dictionary.get('direction')
-        self.c_behavior = dictionary.get('control_behavior')
+        self.c_behavior = dictionary.get('control_behavior').get('decider_conditions')
+        self.cond_first_signal = self.c_behavior.get('first_signal')
+        self.cond_constant = self.c_behavior.get('constant')
+        self.cond_second_signal = self.c_behavior.get('second_signal')
+        self.cond_comparator = self.c_behavior.get('comparator')
+        self.cond_output_signal = self.c_behavior.get('output_signal')
+        self.cond_copy_count = self.c_behavior.get('copy_count_from_input')
         self.connectIN = self.connect1
         self.connectOUT = self.connect2
         self.red_input = self.connectIN.get('red')
@@ -152,17 +158,54 @@ class Decider_Combinator(Connected_Entity):
         self.inputs += [[]]
         if self.red_input:
             for e in self.red_input:
-                self.inputs[self.tick] += [self.simulation.get_entity(e.get('entity_id')).get_output(self.tick - 1)]
+                self.inputs[self.tick] += self.simulation.get_entity(
+                    e.get('entity_id')).get_output(self.tick - 1)
         if self.green_input:
             for e in self.green_input:
-                self.inputs[self.tick] += [self.simulation.get_entity(e.get('entity_id')).get_output(self.tick - 1)]
+                self.inputs[self.tick] += self.simulation.get_entity(
+                    e.get('entity_id')).get_output(self.tick - 1)
 
+        input_count = {}
+        for i in self.inputs[self.tick]:
+            print("checking .. {}".format(i))
+            if isinstance(i, Signal):
+                if i.name in input_count:
+                    input_count[i.name] += i.count
+                else:
+                    input_count[i.name] = i.count
 
-        self.outputs += ['output']
+        self.outputs += [[]]
+        self.tick += 1
 
-        self.tick +=1
+        if not self.cond_first_signal or not self.cond_output_signal:
 
+            return
 
+        if self.cond_constant:
+
+            compare_value = self.cond_constant
+
+        elif self.cond_second_signal:
+
+            compare_value = input_count.get(self.cond_second_signal.get('name'))
+
+        if self.cond_first_signal.get('name') == 'signal-everything':
+            pass
+        elif self.cond_first_signal.get('name') == 'signal-anything':
+            pass
+        elif self.cond_first_signal.get('name') == 'signal-each':
+            pass
+        else:
+            test_value = input_count.get(self.cond_first_signal.get('name'))
+
+            condition = str(test_value) + self.cond_comparator + str(compare_value)
+
+            result = eval(condition)
+
+            print('Evaluating {}: {}'.format(condition, result))
+
+            if result:
+                self.outputs[self.tick - 1] += ["Signal"]
 
 
 
