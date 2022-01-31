@@ -24,9 +24,6 @@
 #######################################################################
 
 
-
-
-
 import zlib
 import base64
 import json
@@ -58,11 +55,13 @@ def open_blueprint(filename=None):
 
 class Signal():
     """Object to manipulate signals."""
+
     def __init__(self, dictionary):
         self.name = dictionary.get('signal').get('name')
         self.count = dictionary.get('count')
         self.kind = dictionary.get('signal').get('type')
         self.index = dictionary.get('index')
+
     def __str__(self):
         return "{} = {}".format(self.name, self.count)
 
@@ -86,6 +85,7 @@ class Entity():
 
 class Connected_Entity(Entity):
     """Any entity that can have connections"""
+
     def __init__(self, dictionary, simulation):
         super().__init__(dictionary)
         self.simulation = simulation
@@ -98,7 +98,7 @@ class Connected_Entity(Entity):
             self.connect2 = self.connections.get('2')
         self.connectIN = {}
         self.connectOUT = {}
-        
+
     def advance(self):
         raise NotImplementedError
 
@@ -113,13 +113,14 @@ class Electric_pole(Connected_Entity):
 
     def __init__(self, dictionary, simulation):
         super().__init__(dictionary, simulation)
+
     def advance(self):
         pass
 
 
 class Constant_Combinator(Connected_Entity):
     """Constant combinator, outputs constant signal."""
-    
+
     def __init__(self, dictionary, simulation):
         super().__init__(dictionary, simulation)
         self.direction = dictionary.get('direction')
@@ -187,7 +188,7 @@ class Decider_Combinator(Connected_Entity):
 
         elif self.cond_second_signal:
 
-            compare_value = input_count.get(self.cond_second_signal.get('name'))
+            compare_value = input_count.get(self.cond_second_signal.get('name'), 0)
 
         if self.cond_first_signal.get('name') == 'signal-everything':
             pass
@@ -196,17 +197,22 @@ class Decider_Combinator(Connected_Entity):
         elif self.cond_first_signal.get('name') == 'signal-each':
             pass
         else:
-            test_value = input_count.get(self.cond_first_signal.get('name'))
-
+            test_value = input_count.get(self.cond_first_signal.get('name'), 0)
+            
+            if self.cond_comparator == '=':
+                self.cond_comparator = '=='
             condition = str(test_value) + self.cond_comparator + str(compare_value)
 
             result = eval(condition)
 
-            print('Evaluating {}: {}'.format(condition, result))
+            print('Evaluating {}: {}, {}'.format(condition, result, type(result)))
 
             if result:
-                self.outputs[self.tick - 1] += ["Signal"]
 
+                if self.cond_copy_count:
+                    name = self.cond_output_signal.get('name')
+                    count =  input_count.get(name , 0)
+                    self.outputs[self.tick - 1] += [Signal({'signal':{'name': name, 'type': 'virtual'}, 'count': count })]
 
 
 
