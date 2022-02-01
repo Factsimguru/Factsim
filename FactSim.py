@@ -107,6 +107,11 @@ class Connected_Entity(Entity):
             self.advance()
         return self.outputs[tick]
 
+    def get_input(self, tick=None):
+        if not tick:
+            tick = -1
+        return self.inputs[tick]
+
 
 class Electric_pole(Connected_Entity):
     """Any pole of any size, is a subclass of Connected_Entity."""
@@ -126,16 +131,15 @@ class Constant_Combinator(Connected_Entity):
         self.direction = dictionary.get('direction')
         self.c_behavior = dictionary.get('control_behavior').get('filters')
         self.connectOUT = self.connect1
-        
+
     def advance(self):
         self.tick += 1
         self.outputs += [[Signal(f) for f in self.c_behavior]]
 
 
-
 class Decider_Combinator(Connected_Entity):
     """Decider combinator, given a condition decides if a signal must output"""
-    
+
     def __init__(self, dictionary, simulation):
         super().__init__(dictionary, simulation)
         self.direction = dictionary.get('direction')
@@ -144,18 +148,36 @@ class Decider_Combinator(Connected_Entity):
         self.cond_constant = self.c_behavior.get('constant')
         self.cond_second_signal = self.c_behavior.get('second_signal')
         self.cond_comparator = self.c_behavior.get('comparator')
+        if self.cond_comparator == '=':
+                self.cond_comparator = '=='
         self.cond_output_signal = self.c_behavior.get('output_signal')
         self.cond_copy_count = self.c_behavior.get('copy_count_from_input')
         self.connectIN = self.connect1
         self.connectOUT = self.connect2
-        self.red_input = self.connectIN.get('red')
-        self.green_input = self.connectIN.get('green')
+        self.red_input = []
+        self.green_input = []
         #on first tick will never output anything
         self.tick += 1
         self.outputs = [[]]
         self.inputs = [[]]
 
     def advance(self):
+        if self.tick == 1:
+            if self.connectIN.get('red'):
+                for conn in self.connectIN.get('red'):
+                    conn_entity = conn.get('entity_id')
+                    entity_obj = self.simulation.get_entity(conn_entity)
+                    for conn_out in entity_obj.connectOUT.get('red'):
+                        if conn_out.get('entity_id') == self.entity_N:
+                            self.red_input += [conn]
+
+            if self.connectIN.get('green'):
+                for conn in self.connectIN.get('green'):
+                    conn_entity = conn.get('entity_id')
+                    entity_obj = self.simulation.get_entity(conn_entity)
+                    for conn_out in entity_obj.connectOUT.get('green'):
+                        if conn_out.get('entity_id') == self.entity_N:
+                            self.green_input += [conn]
         self.inputs += [[]]
         if self.red_input:
             for e in self.red_input:
@@ -190,17 +212,40 @@ class Decider_Combinator(Connected_Entity):
 
             compare_value = input_count.get(self.cond_second_signal.get('name'), 0)
 
+        else:
+            return
+
         if self.cond_first_signal.get('name') == 'signal-everything':
             pass
         elif self.cond_first_signal.get('name') == 'signal-anything':
             pass
         elif self.cond_first_signal.get('name') == 'signal-each':
-            pass
+            if self.cond_output_signal.get('name') == 'signal-each':
+
+                for inp, c in input_count.items():
+                    condition = str(c) + self.cond_comparator + str(compare_value)
+                    result = eval(condition)
+                    if result:
+                        name = inp
+                        if self.cond_copy_count:
+                            count = c
+                        else:
+                            count = 1
+                        self.outputs[self.tick - 1] += [Signal({'signal':{'name': name, 'type': 'virtual'}, 'count': count})]
+
+            else:
+                count = 0
+                for inp, c in input_count.items():
+                    condition = str(c) + self.cond_comparator + str(compare_value)
+                    result = eval(condition)
+                    if result:
+                        count += c
+                name = self.cond_output_signal.get('name')
+                self.outputs[self.tick - 1] += [Signal({'signal':{'name': name, 'type': 'virtual'}, 'count': count})]
+            
         else:
             test_value = input_count.get(self.cond_first_signal.get('name'), 0)
             
-            if self.cond_comparator == '=':
-                self.cond_comparator = '=='
             condition = str(test_value) + self.cond_comparator + str(compare_value)
 
             result = eval(condition)
@@ -208,11 +253,13 @@ class Decider_Combinator(Connected_Entity):
             print('Evaluating {}: {}, {}'.format(condition, result, type(result)))
 
             if result:
-
+                name = self.cond_output_signal.get('name')
                 if self.cond_copy_count:
-                    name = self.cond_output_signal.get('name')
                     count =  input_count.get(name , 0)
-                    self.outputs[self.tick - 1] += [Signal({'signal':{'name': name, 'type': 'virtual'}, 'count': count })]
+                else:
+                    count = 1
+                self.outputs[self.tick - 1] += [Signal({'signal':{'name': name, 'type': 'virtual'}, 'count': count})]
+                
 
 
 
@@ -263,3 +310,5 @@ class Factsimcmd():
         return self.Entities[n-1]
 
 f = Factsimcmd()
+f.get_entity(2).get_output(10)
+f.get_entity(3).get_output(10)
