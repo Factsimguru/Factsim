@@ -107,9 +107,9 @@ class Connected_Entity(Entity):
             self.advance()
         return self.outputs[tick]
 
-    def get_input(self, tick=None):
-        if not tick:
-            tick = -1
+    def get_input(self, tick):
+        while len(self.inputs) < tick + 1:
+            self.advance()
         return self.inputs[tick]
 
 
@@ -143,7 +143,8 @@ class Decider_Combinator(Connected_Entity):
     def __init__(self, dictionary, simulation):
         super().__init__(dictionary, simulation)
         self.direction = dictionary.get('direction')
-        self.c_behavior = dictionary.get('control_behavior').get('decider_conditions')
+        self.c_behavior = dictionary.get(
+            'control_behavior').get('decider_conditions')
         self.cond_first_signal = self.c_behavior.get('first_signal')
         self.cond_constant = self.c_behavior.get('constant')
         self.cond_second_signal = self.c_behavior.get('second_signal')
@@ -161,23 +162,26 @@ class Decider_Combinator(Connected_Entity):
         self.outputs = [[]]
         self.inputs = [[]]
 
+    def sort_input(self):
+        if self.connectIN.get('red'):
+            for conn in self.connectIN.get('red'):
+                conn_entity = conn.get('entity_id')
+                entity_obj = self.simulation.get_entity(conn_entity)
+                for conn_out in entity_obj.connectOUT.get('red'):
+                    if conn_out.get('entity_id') == self.entity_N:
+                        self.red_input += [conn]
+
+        if self.connectIN.get('green'):
+            for conn in self.connectIN.get('green'):
+                conn_entity = conn.get('entity_id')
+                entity_obj = self.simulation.get_entity(conn_entity)
+                for conn_out in entity_obj.connectOUT.get('green'):
+                    if conn_out.get('entity_id') == self.entity_N:
+                        self.green_input += [conn]
+
     def advance(self):
         if self.tick == 1:
-            if self.connectIN.get('red'):
-                for conn in self.connectIN.get('red'):
-                    conn_entity = conn.get('entity_id')
-                    entity_obj = self.simulation.get_entity(conn_entity)
-                    for conn_out in entity_obj.connectOUT.get('red'):
-                        if conn_out.get('entity_id') == self.entity_N:
-                            self.red_input += [conn]
-
-            if self.connectIN.get('green'):
-                for conn in self.connectIN.get('green'):
-                    conn_entity = conn.get('entity_id')
-                    entity_obj = self.simulation.get_entity(conn_entity)
-                    for conn_out in entity_obj.connectOUT.get('green'):
-                        if conn_out.get('entity_id') == self.entity_N:
-                            self.green_input += [conn]
+            self.sort_input()
         self.inputs += [[]]
         if self.red_input:
             for e in self.red_input:
@@ -187,9 +191,8 @@ class Decider_Combinator(Connected_Entity):
             for e in self.green_input:
                 self.inputs[self.tick] += self.simulation.get_entity(
                     e.get('entity_id')).get_output(self.tick - 1)
-
         input_count = {}
-        for i in self.inputs[self.tick]:
+        for i in self.inputs[self.tick - 1]:
             print("checking .. {}".format(i))
             if isinstance(i, Signal):
                 if i.name in input_count:
@@ -310,5 +313,5 @@ class Factsimcmd():
         return self.Entities[n-1]
 
 f = Factsimcmd()
-f.get_entity(2).get_output(10)
-f.get_entity(3).get_output(10)
+#f.get_entity(2).get_output(10)
+#f.get_entity(3).get_output(10)
