@@ -30,6 +30,7 @@ import json
 import tkinter as tk
 import tkinter.filedialog
 import time
+from itertools import count
 
 
 def open_blueprint(filename=None):
@@ -83,6 +84,36 @@ class Entity():
         return 'Entity nr {:0>3d} - {}'.format(self.entity_N,  self.name)
 
 
+class Network():
+    """A collection of entities that share input or output"""
+    _ids = count(0)
+
+    def __init__(self, simulation):
+        self.simulation = simulation
+        self.upstream = []
+        self.downstream = []
+        self.network_N = next(_ids)
+        self.state = []
+        self.tick = 0
+
+    def get_state(self, tick):
+        while len(self.state) < tick + 1:
+            self.advance()
+        return self.state[tick]
+
+    def advance(self):
+        self.state += [[]]
+        for e in self.upstream:
+            self.state[self.tick] += e.get_output(self.tick)
+        self.tick += 1
+
+    def __str__(self):
+        return "Network nr {:0>3d}:" \
+               "        Entities upstream: {}" \
+               "        Entities downstream: {}".format(
+                   self.network_N, self.upstream, self.downstream)
+
+
 class Connected_Entity(Entity):
     """Any entity that can have connections"""
 
@@ -107,10 +138,6 @@ class Connected_Entity(Entity):
             self.advance()
         return self.outputs[tick]
 
-    def get_input(self, tick):
-        while len(self.inputs) < tick + 1:
-            self.advance()
-        return self.inputs[tick]
 
 
 class Electric_pole(Connected_Entity):
@@ -150,38 +177,21 @@ class Decider_Combinator(Connected_Entity):
         self.cond_second_signal = self.c_behavior.get('second_signal')
         self.cond_comparator = self.c_behavior.get('comparator')
         if self.cond_comparator == '=':
-                self.cond_comparator = '=='
+            self.cond_comparator = '=='
         self.cond_output_signal = self.c_behavior.get('output_signal')
         self.cond_copy_count = self.c_behavior.get('copy_count_from_input')
         self.connectIN = self.connect1
         self.connectOUT = self.connect2
         self.red_input = []
         self.green_input = []
-        #on first tick will never output anything
+        # on first tick will never output anything, on tick 0 there are no outputs.
         self.tick += 1
         self.outputs = [[]]
         self.inputs = [[]]
 
-    def sort_input(self):
-        if self.connectIN.get('red'):
-            for conn in self.connectIN.get('red'):
-                conn_entity = conn.get('entity_id')
-                entity_obj = self.simulation.get_entity(conn_entity)
-                for conn_out in entity_obj.connectOUT.get('red'):
-                    if conn_out.get('entity_id') == self.entity_N:
-                        self.red_input += [conn]
-
-        if self.connectIN.get('green'):
-            for conn in self.connectIN.get('green'):
-                conn_entity = conn.get('entity_id')
-                entity_obj = self.simulation.get_entity(conn_entity)
-                for conn_out in entity_obj.connectOUT.get('green'):
-                    if conn_out.get('entity_id') == self.entity_N:
-                        self.green_input += [conn]
 
     def advance(self):
-        if self.tick == 1:
-            self.sort_input()
+
         self.inputs += [[]]
         if self.red_input:
             for e in self.red_input:
@@ -213,7 +223,8 @@ class Decider_Combinator(Connected_Entity):
 
         elif self.cond_second_signal:
 
-            compare_value = input_count.get(self.cond_second_signal.get('name'), 0)
+            compare_value = input_count.get(
+                self.cond_second_signal.get('name'), 0)
 
         else:
             return
@@ -291,6 +302,8 @@ class Factsimcmd():
         self.Entities = []
         self.bpEntities = []
         self.create_entities()
+        self.networks = []
+        self.mapped = []
 
     def create_entities(self):
         """Parse the blueprint into objects. Fill the Entities list."""
@@ -307,6 +320,10 @@ class Factsimcmd():
                 self.Entities += [Arithmetic_Combinator(e.dictionary, self)]
             else:
                 self.Entities += [e]
+    def create_networks(self):
+        """create the necessary networks for signal input/output"""
+        for e in self.Entities:
+
 
     def get_entity(self, n):
         """Get an entity by number"""
