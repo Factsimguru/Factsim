@@ -33,6 +33,8 @@ import json
 import tkinter as tk
 import tkinter.filedialog
 import time
+from itertools import count
+
 
 
 def open_blueprint(filename=None):
@@ -67,6 +69,21 @@ class Signal():
         return "{} = {}".format(self.name, self.count)
 
 
+class Network():
+    """abstraction for the connections"""
+    _ids = count(0)
+
+    def __init__(self):
+        self.nw_N = next(self._ids)
+        self.upstream = []
+        self.downstream = []
+        self.members = []
+
+    def __str__(self):
+        return "Network {}\n" \
+               "    upstream : {}\n" \
+               "    downstream: {}".format(self.nw_N, self.upstream, self.downstream)
+
 class Entity():
     """Generic Factsim entity.
 
@@ -96,8 +113,8 @@ class Connected_Entity(Entity):
         if self.connections:
             self.connect1 = self.connections.get('1')
             self.connect2 = self.connections.get('2')
-        self.connectIN = {}
-        self.connectOUT = {}
+        self.connectIN = None
+        self.connectOUT = None
         
     def advance(self):
         raise NotImplementedError
@@ -124,7 +141,6 @@ class Constant_Combinator(Connected_Entity):
         super().__init__(dictionary, simulation)
         self.direction = dictionary.get('direction')
         self.c_behavior = dictionary.get('control_behavior').get('filters')
-        self.connectOUT = self.connect1
         
     def advance(self):
         self.tick += 1
@@ -139,34 +155,6 @@ class Decider_Combinator(Connected_Entity):
         super().__init__(dictionary, simulation)
         self.direction = dictionary.get('direction')
         self.c_behavior = dictionary.get('control_behavior')
-        self.connectIN = self.connect1
-        self.connectOUT = self.connect2
-        self.red_input = self.connectIN.get('red')
-        self.green_input = self.connectIN.get('green')
-        #on first tick will never output anything
-        self.tick += 1
-        self.outputs = [[]]
-        self.inputs = [[]]
-
-    def advance(self):
-        self.inputs += [[]]
-        if self.red_input:
-            for e in self.red_input:
-                self.inputs[self.tick] += [self.simulation.get_entity(e.get('entity_id')).get_output(self.tick - 1)]
-        if self.green_input:
-            for e in self.green_input:
-                self.inputs[self.tick] += [self.simulation.get_entity(e.get('entity_id')).get_output(self.tick - 1)]
-
-
-        self.outputs += ['output']
-
-        self.tick +=1
-
-
-
-
-
-
 
 
 
@@ -179,8 +167,6 @@ class Arithmetic_Combinator(Connected_Entity):
         super().__init__(dictionary, simulation)
         self.direction = dictionary.get('direction')
         self.c_behavior = dictionary.get('control_behavior')
-        self.connectIN = self.connect1
-        self.connectOUT = self.connect2
 
 
 
@@ -213,4 +199,4 @@ class Factsimcmd():
         """Get an entity by number"""
         return self.Entities[n-1]
 
-f = Factsimcmd()
+#f = Factsimcmd()
