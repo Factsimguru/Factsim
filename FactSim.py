@@ -24,9 +24,6 @@
 #######################################################################
 
 
-
-
-
 import zlib
 import base64
 import json
@@ -34,7 +31,6 @@ import tkinter as tk
 import tkinter.filedialog
 import time
 from itertools import count
-
 
 
 def open_blueprint(filename=None):
@@ -60,29 +56,47 @@ def open_blueprint(filename=None):
 
 class Signal():
     """Object to manipulate signals."""
+
     def __init__(self, dictionary):
         self.name = dictionary.get('signal').get('name')
         self.count = dictionary.get('count')
         self.kind = dictionary.get('signal').get('type')
         self.index = dictionary.get('index')
+
     def __str__(self):
         return "{} = {}".format(self.name, self.count)
 
 
 class Network():
     """abstraction for the connections"""
-    _ids = count(0)
+    _ids = count(1)
 
-    def __init__(self):
+    def __init__(self, upstream=None, downstream=None, poles=None, color=None):
         self.nw_N = next(self._ids)
-        self.upstream = []
-        self.downstream = []
-        self.members = []
+        self.upstream = upstream or []
+        self.downstream = downstream or []
+        self.poles = poles or []
+        self.color = color
+
+    @property
+    def members(self):
+        return self.upstream + self.downstream + self.poles
+
+    def include_upstream(self, entitynr):
+        if entitynr not in self.upstream:
+            self.upstream += [entitynr]
+
+    def include_downstream(self, entitynr):
+        if entitynr not in self.downstream:
+            self.downstream += [entitynr]
 
     def __str__(self):
         return "Network {}\n" \
-               "    upstream : {}\n" \
-               "    downstream: {}".format(self.nw_N, self.upstream, self.downstream)
+               "    upstream:   {}\n" \
+               "    downstream: {}\n" \
+               "    poles:      {}".format(
+                   self.nw_N, self.upstream, self.downstream, self.poles)
+
 
 class Entity():
     """Generic Factsim entity.
@@ -101,8 +115,9 @@ class Entity():
         return 'Entity nr {:0>3d} - {}'.format(self.entity_N,  self.name)
 
 
-class Connected_Entity(Entity):
+class ConnectedEntity(Entity):
     """Any entity that can have connections"""
+
     def __init__(self, dictionary, simulation):
         super().__init__(dictionary)
         self.simulation = simulation
@@ -111,11 +126,14 @@ class Connected_Entity(Entity):
         self.inputs = []
         self.outputs = []
         if self.connections:
-            self.connect1 = self.connections.get('1')
-            self.connect2 = self.connections.get('2')
+            self.connect1 = self.connections.get('1') or {'red': [], 'green': []}
+            self.connect2 = self.connections.get('2') or {'red': [], 'green': []}
+        else:
+            self.connect1 = {'red': [], 'green': []}
+            self.connect2 = {'red': [], 'green': []}
         self.connectIN = None
         self.connectOUT = None
-        
+
     def advance(self):
         raise NotImplementedError
 
@@ -125,49 +143,55 @@ class Connected_Entity(Entity):
         return self.outputs[tick]
 
 
-class Electric_pole(Connected_Entity):
-    """Any pole of any size, is a subclass of Connected_Entity."""
+class ElectricPole(ConnectedEntity):
+    """Any pole of any size, is a subclass of ConnectedEntity."""
 
     def __init__(self, dictionary, simulation):
         super().__init__(dictionary, simulation)
+
     def advance(self):
         pass
 
 
-class Constant_Combinator(Connected_Entity):
+class Constant_Combinator(ConnectedEntity):
     """Constant combinator, outputs constant signal."""
     
     def __init__(self, dictionary, simulation):
         super().__init__(dictionary, simulation)
         self.direction = dictionary.get('direction')
         self.c_behavior = dictionary.get('control_behavior').get('filters')
+        self.connectOUT = self.connect1
         
     def advance(self):
         self.tick += 1
         self.outputs += [[Signal(f) for f in self.c_behavior]]
 
 
-
-class Decider_Combinator(Connected_Entity):
-    """Decider combinator, given a condition decides if a signal must output"""
-    
+class Combinator(ConnectedEntity):
+    """Generic class for combinators with 2 attachments"""
     def __init__(self, dictionary, simulation):
         super().__init__(dictionary, simulation)
         self.direction = dictionary.get('direction')
         self.c_behavior = dictionary.get('control_behavior')
+        self.connectIN = self.connect1
+        self.connectOUT = self.connect2
+
+    def advance(self):
+        raise NotImplementedError
+
+
+class Decider(Combinator):
+    """Decider combinator, given a condition decides if a signal must output"""
+    def __init__(self, dictionary, simulation):
+        super().__init__(dictionary, simulation)
 
 
 
-
-
-class Arithmetic_Combinator(Connected_Entity):
+class Arithmetic(Combinator):
     """Arithmetic combinator, given inputs and operation generates output"""
     
     def __init__(self, dictionary, simulation):
         super().__init__(dictionary, simulation)
-        self.direction = dictionary.get('direction')
-        self.c_behavior = dictionary.get('control_behavior')
-
 
 
 class Factsimcmd():
@@ -177,7 +201,10 @@ class Factsimcmd():
         self.blueprint = open_blueprint(filename=filename)
         self.Entities = []
         self.bpEntities = []
+        self.networks = {'red': [], 'green': []}
         self.create_entities()
+        for c in ('red', 'green'):
+            self.create_networks(c)
 
     def create_entities(self):
         """Parse the blueprint into objects. Fill the Entities list."""
@@ -185,18 +212,144 @@ class Factsimcmd():
         genericentities = [Entity(e) for e in self.bpEntities]
         for e in genericentities:
             if 'pole' in e.name.split('-') or e.name == 'substation':
-                self.Entities += [Electric_pole(e.dictionary, self)]
+                self.Entities += [ElectricPole(e.dictionary, self)]
             elif e.name == 'constant-combinator':
                 self.Entities += [Constant_Combinator(e.dictionary, self)]
             elif e.name == 'decider-combinator':
-                self.Entities += [Decider_Combinator(e.dictionary, self)]
+                self.Entities += [Decider(e.dictionary, self)]
             elif e.name == 'arithmetic-combinator':
-                self.Entities += [Arithmetic_Combinator(e.dictionary, self)]
+                self.Entities += [Arithmetic(e.dictionary, self)]
             else:
                 self.Entities += [e]
+
+    def get_nw_for_Entity(self, entity, color):
+        """get the network object that has entity as member"""
+        for nw in self.networks.get(color):
+            if entity in nw.members:
+                return nw
+
+    def get_nw_with_upstream(self, entityup, color):
+
+        for nw in self.networks.get(color):
+            if entityup in nw.upstream:
+                return nw
+
+    def get_nw_with_downstream(self, entitydown, color):
+        for nw in self.networks.get(color):
+            if entitydown in nw.downstream:
+                return nw
+
+    def add_network(self, nw):
+        color = nw.color
+        existent = None
+        for up in nw.upstream:
+            existent = self.get_nw_with_upstream(up, color)
+            if existent:
+                for upstream in nw.upstream:
+                    existent.include_upstream(upstream)
+                for downstream in nw.downstream:
+                    existent.include_downstream(downstream)
+
+        for down in nw.downstream:
+            existent = self.get_nw_with_downstream(down, color)
+            if existent:
+                for upstream in nw.upstream:
+                    existent.include_upstream(upstream)
+                for downstream in nw.downstream:
+                    existent.include_downstream(downstream)
+        if not existent:
+            self.networks[color] += [nw]
+
+    def create_networks(self, color):
+        """Create the networks"""
+        # First we convert the poles
+        done = []
+        for e in self.Entities:
+            if isinstance(e, ElectricPole):
+                if e.connect1.get(color):
+                    nw = self.get_nw_for_Entity(e, color)
+                    if not nw:
+                        nw = Network(poles=[e.entity_N], color=color)
+                        self.networks[color] += [nw]
+                    connections = e.connect1.get(color)
+                    if connections:
+                        for conn in connections:
+                            ent_id = conn.get('entity_id')
+                            side = conn.get('circuit_id')
+                            ent = self.get_entity(ent_id)
+                            if ent_id in done:
+                                continue
+                            if isinstance(ent, ElectricPole):
+                                nw.poles += [ent_id]
+                            elif isinstance(ent, Constant_Combinator):
+                                nw.upstream += [ent_id]
+                            elif side == 1:
+                                nw.downstream += [ent_id]
+                            elif side == 2:
+                                nw.upstream += [ent_id]
+                done += [e.entity_N]
+
+
+        for e in self.Entities:
+            if e.entity_N in done:
+                continue
+            if isinstance(e, Constant_Combinator):
+                if e.connectOUT.get(color):
+                    nw = self.get_nw_for_Entity(e, color)
+                    if not nw:
+                        nw = Network(upstream=[e.entity_N], color=color)
+                    connections = e.connect1.get(color)
+                    if connections:
+                        for conn in connections:
+                            ent_id = conn.get('entity_id')
+                            side = conn.get('circuit_id')
+                            ent = self.get_entity(ent_id)
+                            if isinstance(ent, Constant_Combinator) or side == 2:
+                                nw.include_upstream(ent_id)
+                            elif side == 1:
+                                nw.include_downstream(ent_id)
+                    self.add_network(nw)
+
+
+            elif isinstance(e, Combinator):
+
+                if e.connectIN.get(color):
+                    nw = self.get_nw_with_downstream(e.entity_N, color)
+                    if not nw:
+                        nw = Network(downstream=[e.entity_N], color=color)
+
+                    for conn_in in e.connectIN.get(color):
+                        ent_id = conn_in.get('entity_id')
+                        side = conn_in.get('circuit_id')
+                        ent = self.get_entity(ent_id)
+                        if isinstance(ent, Constant_Combinator):
+                            nw.include_upstream(ent_id)
+                        elif side == 2:
+                            nw.include_upstream(ent_id)
+                        elif side == 1:
+                            nw.include_downstream(ent_id)
+                    self.add_network(nw)
+
+                if e.connectOUT.get(color):
+                    nw = self.get_nw_with_upstream(e.entity_N, color)
+                    if not nw:
+                        nw = Network(upstream=[e.entity_N], color=color)
+
+                    for conn_out in e.connectOUT.get(color):
+                        ent_id = conn_out.get('entity_id')
+                        side = conn_out.get('circuit_id')
+                        ent = self.get_entity(ent_id)
+                        if isinstance(ent, Constant_Combinator):
+                            nw.include_upstream(ent_id)
+                        elif side == 2:
+                            nw.include_upstream(ent_id)
+                        elif side == 1:
+                            nw.include_downstream(ent_id)
+                    self.add_network(nw)
+
 
     def get_entity(self, n):
         """Get an entity by number"""
         return self.Entities[n-1]
 
-#f = Factsimcmd()
+f = Factsimcmd()
