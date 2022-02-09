@@ -123,8 +123,8 @@ class ConnectedEntity(Entity):
         self.simulation = simulation
         self.connections = dictionary.get('connections')
         self.tick = 0
-        self.inputs = []
-        self.outputs = []
+        self.inputs = [[]]
+        self.outputs = [[]]
         if self.connections:
             self.connect1 = self.connections.get('1') or {'red': [], 'green': []}
             self.connect2 = self.connections.get('2') or {'red': [], 'green': []}
@@ -161,7 +161,8 @@ class Constant_Combinator(ConnectedEntity):
         self.direction = dictionary.get('direction')
         self.c_behavior = dictionary.get('control_behavior').get('filters')
         self.connectOUT = self.connect1
-        
+        self.outputs = [[Signal(f) for f in self.c_behavior]]
+
     def advance(self):
         self.tick += 1
         self.outputs += [[Signal(f) for f in self.c_behavior]]
@@ -176,6 +177,20 @@ class Combinator(ConnectedEntity):
         self.connectIN = self.connect1
         self.connectOUT = self.connect2
 
+    def gather_input(self, tick):
+        inputs = []
+        nwred = self.simulation.get_nw_with_downstream(self.entity_N, 'red')
+        nwgreen = self.simulation.get_nw_with_downstream(self.entity_N, 'green')
+
+        if nwred:
+            for up in nwred.upstream:
+                inputs += self.simulation.get_entity(up).get_output(tick)
+        if nwgreen:
+            for up in nwgreen.upstream:
+                inputs += self.simulation.get_entity(up).get_output(tick)
+
+        return inputs
+
     def advance(self):
         raise NotImplementedError
 
@@ -184,7 +199,93 @@ class Decider(Combinator):
     """Decider combinator, given a condition decides if a signal must output"""
     def __init__(self, dictionary, simulation):
         super().__init__(dictionary, simulation)
+        self.c_behavior = self.c_behavior.get('decider_conditions')
+        self.first_signal = self.c_behavior.get('first_signal')
+        self.constant = self.c_behavior.get('constant')
+        self.second_signal = self.c_behavior.get('second_signal')
+        self.comparator = self.c_behavior.get('comparator')
+        if self.comparator == '=':
+            self.comparator = '=='
+        self.output_signal = self.c_behavior.get('output_signal')
+        self.copy_count = self.c_behavior.get('copy_count_from_input')
 
+    def advance(self):
+        self.inputs += [self.gather_input(self.tick)]
+        self.tick += 1
+        input_count = {}
+        for i in self.inputs[self.tick]:
+            print("checking .. {}".format(i))
+            if isinstance(i, Signal):
+                if i.name in input_count:
+                    input_count[i.name] += i.count
+                else:
+                    input_count[i.name] = i.count
+
+        self.outputs += [[]]
+
+
+        if not self.first_signal or not self.output_signal:
+            return
+
+        if self.constant != None:
+
+            compare_value = self.constant
+
+        elif self.second_signal:
+
+            compare_value = input_count.get(
+                self.second_signal.get('name'), 0)
+
+        else:
+            return
+
+        if self.first_signal.get('name') == 'signal-everything':
+            pass
+        elif self.first_signal.get('name') == 'signal-anything':
+            pass
+        elif self.first_signal.get('name') == 'signal-each':
+            if self.output_signal.get('name') == 'signal-each':
+
+                for inp, c in input_count.items():
+                    condition = str(c) + self.comparator + str(compare_value)
+                    result = eval(condition)
+                    if result:
+                        name = inp
+                        if self.copy_count:
+                            count = c
+                        else:
+                            count = 1
+                        if count > 0:
+                            self.outputs[self.tick] += [Signal({'signal': {'name': name, 'type': 'virtual'}, 'count': count})]
+
+            else:
+                count = 0
+                for inp, c in input_count.items():
+                    condition = str(c) + self.comparator + str(compare_value)
+                    result = eval(condition)
+                    if result:
+                        count += c
+                name = self.output_signal.get('name')
+                if count > 0:
+                    self.outputs[self.tick] += [Signal({'signal': {'name': name, 'type': 'virtual'}, 'count': count})]
+
+        else:
+            test_value = input_count.get(self.first_signal.get('name'), 0)
+
+            condition = str(test_value) + self.comparator + str(compare_value)
+
+            result = eval(condition)
+
+            print('Evaluating {}: {}, {}'.format(condition, result, type(result)))
+
+            if result:
+                name = self.output_signal.get('name')
+                if self.copy_count:
+                    count = input_count.get(name, 0)
+                else:
+                    count = 1
+                if count > 0:
+                    self.outputs[self.tick] += [Signal({'signal': {'name': name, 'type': 'virtual'}, 'count': count})]
 
 
 class Arithmetic(Combinator):
@@ -353,3 +454,8 @@ class Factsimcmd():
         return self.Entities[n-1]
 
 f = Factsimcmd()
+
+print(f.get_entity(3).get_output(10))
+print(f.get_entity(4).get_output(10))
+print(f.get_entity(5).get_output(10))
+print(f.get_entity(7).get_output(10))
