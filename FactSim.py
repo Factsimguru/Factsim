@@ -33,6 +33,17 @@ import time
 from itertools import count
 
 
+ORDER = ["signal-{}".format(n) for n in range(10)] + ["signal-{}".format(chr(n)) for n in range(65,91)] +\
+        ["signal-red", "signal-green", "signal-blue", "signal-yellow", "signal-pink", "signal-cyan", "signal-white", \
+         "signal-grey", "signal-black", "signal-check", "signal-info", "signal-dot"]
+
+def sig_sort(signal):
+    """Helper function to order the signals"""
+    if signal not in ORDER:
+        ORDER.append(signal)
+    return ORDER.index(signal)
+
+
 def open_blueprint(filename=None):
     """Open a blueprint by filename or prompting the user for one.
 
@@ -266,7 +277,7 @@ class Decider(Combinator):
                     name = self.output_signal.get('name')
                     if self.copy_count:
                         count = input_count.get(name, 0)
-                        if count > 0:
+                        if count != 0:
                             self.outputs[self.tick] += [
                                 Signal({'signal': {'name': name, 'type': 'virtual'}, 'count': count})]
                     else:
@@ -275,7 +286,40 @@ class Decider(Combinator):
 
 
         elif self.first_signal.get('name') == 'signal-anything':
-            pass
+            result = any([eval(str(c) + self.comparator + str(compare_value)) for c in input_count.values()])
+
+            if result:
+                if self.output_signal.get('name') == 'signal-everything':
+                    if self.copy_count:
+                        self.outputs[self.tick] += [
+                            Signal({'signal': {'name': name, 'type': 'virtual'}, 'count': count}) for name, count in
+                            input_count.items() if count != 0]
+                    else:
+                        self.outputs[self.tick] += [
+                            Signal({'signal': {'name': name, 'type': 'virtual'}, 'count': 1}) for name in
+                            input_count.keys()]
+                elif self.output_signal.get('name') == 'signal-anything':
+                    sorted_signals = sorted(input_count.keys(), key=lambda x: sig_sort(x))
+                    name = sorted_signals[0]
+                    if self.copy_count:
+                        count = input_count.get(name, 0)
+                    else:
+                        count = 1
+                    if count != 0:
+                        self.outputs[self.tick] += [
+                            Signal({'signal': {'name': name, 'type': 'virtual'}, 'count': count})]
+
+
+
+                else:
+                    name = self.output_signal.get('name')
+                    if self.copy_count:
+                        count = input_count.get(name, 0)
+                    else:
+                        count = 1
+                    if count != 0:
+                        self.outputs[self.tick] += [
+                            Signal({'signal': {'name': name, 'type': 'virtual'}, 'count': count})]
 
 
         elif self.first_signal.get('name') == 'signal-each':
@@ -290,7 +334,7 @@ class Decider(Combinator):
                             count = c
                         else:
                             count = 1
-                        if count > 0:
+                        if count != 0:
                             self.outputs[self.tick] += [Signal({'signal': {'name': name, 'type': 'virtual'}, 'count': count})]
 
             else:
@@ -301,7 +345,7 @@ class Decider(Combinator):
                     if result:
                         count += c
                 name = self.output_signal.get('name')
-                if count > 0:
+                if count != 0:
                     self.outputs[self.tick] += [Signal({'signal': {'name': name, 'type': 'virtual'}, 'count': count})]
 
         else:
@@ -319,7 +363,7 @@ class Decider(Combinator):
                     count = input_count.get(name, 0)
                 else:
                     count = 1
-                if count > 0:
+                if count != 0:
                     self.outputs[self.tick] += [Signal({'signal': {'name': name, 'type': 'virtual'}, 'count': count})]
 
 
