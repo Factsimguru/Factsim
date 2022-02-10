@@ -126,8 +126,10 @@ class ConnectedEntity(Entity):
         self.inputs = [[]]
         self.outputs = [[]]
         if self.connections:
-            self.connect1 = self.connections.get('1') or {'red': [], 'green': []}
-            self.connect2 = self.connections.get('2') or {'red': [], 'green': []}
+            self.connect1 = self.connections.get(
+                '1') or {'red': [], 'green': []}
+            self.connect2 = self.connections.get(
+                '2') or {'red': [], 'green': []}
         else:
             self.connect1 = {'red': [], 'green': []}
             self.connect2 = {'red': [], 'green': []}
@@ -155,7 +157,7 @@ class ElectricPole(ConnectedEntity):
 
 class Constant_Combinator(ConnectedEntity):
     """Constant combinator, outputs constant signal."""
-    
+
     def __init__(self, dictionary, simulation):
         super().__init__(dictionary, simulation)
         self.direction = dictionary.get('direction')
@@ -170,6 +172,7 @@ class Constant_Combinator(ConnectedEntity):
 
 class Combinator(ConnectedEntity):
     """Generic class for combinators with 2 attachments"""
+
     def __init__(self, dictionary, simulation):
         super().__init__(dictionary, simulation)
         self.direction = dictionary.get('direction')
@@ -206,6 +209,13 @@ class Decider(Combinator):
         self.comparator = self.c_behavior.get('comparator')
         if self.comparator == '=':
             self.comparator = '=='
+        elif self.comparator == '≥':
+            self.comparator = '>='
+        elif self.comparator == '≤':
+            self.comparator = '<='
+        elif self.comparator == '≠':
+            self.comparator = '!='
+
         self.output_signal = self.c_behavior.get('output_signal')
         self.copy_count = self.c_behavior.get('copy_count_from_input')
 
@@ -240,9 +250,34 @@ class Decider(Combinator):
             return
 
         if self.first_signal.get('name') == 'signal-everything':
-            pass
+
+            result = all([eval(str(c) + self.comparator + str(compare_value)) for c in input_count.values()])
+            if result:
+                if self.output_signal.get('name') == 'signal-everything':
+                    if self.copy_count:
+                        self.outputs[self.tick] += [
+                            Signal({'signal': {'name': name, 'type': 'virtual'}, 'count': count}) for name, count in
+                            input_count.items() if count != 0]
+                    else:
+                        self.outputs[self.tick] += [
+                            Signal({'signal': {'name': name, 'type': 'virtual'}, 'count': 1}) for name in
+                            input_count.keys()]
+                else:
+                    name = self.output_signal.get('name')
+                    if self.copy_count:
+                        count = input_count.get(name, 0)
+                        if count > 0:
+                            self.outputs[self.tick] += [
+                                Signal({'signal': {'name': name, 'type': 'virtual'}, 'count': count})]
+                    else:
+                        self.outputs[self.tick] += [
+                            Signal({'signal': {'name': name, 'type': 'virtual'}, 'count': 1})]
+
+
         elif self.first_signal.get('name') == 'signal-anything':
             pass
+
+        
         elif self.first_signal.get('name') == 'signal-each':
             if self.output_signal.get('name') == 'signal-each':
 
@@ -455,7 +490,7 @@ class Factsimcmd():
 
 f = Factsimcmd()
 
-print(f.get_entity(3).get_output(10))
-print(f.get_entity(4).get_output(10))
-print(f.get_entity(5).get_output(10))
-print(f.get_entity(7).get_output(10))
+#print(f.get_entity(3).get_output(10))
+#print(f.get_entity(4).get_output(10))
+#print(f.get_entity(5).get_output(10))
+#print(f.get_entity(7).get_output(10))
