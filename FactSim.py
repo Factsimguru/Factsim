@@ -104,11 +104,11 @@ class Network():
             self.downstream += [entitynr]
 
     def __str__(self):
-        return "Network {}\n" \
+        return "{} - Network {}\n" \
                "    upstream:   {}\n" \
                "    downstream: {}\n" \
                "    poles:      {}".format(
-                   self.nw_N, self.upstream, self.downstream, self.poles)
+                   self.color.capitalize(), self.nw_N, self.upstream, self.downstream, self.poles)
 
 
 class Entity():
@@ -157,15 +157,62 @@ class ConnectedEntity(Entity):
             self.advance()
         return self.outputs[tick]
 
+    def gather_input(self, tick):
+        inputs = []
+        nwred = self.simulation.get_nw_with_downstream(self.entity_N, 'red')
+        nwgreen = self.simulation.get_nw_with_downstream(self.entity_N, 'green')
+
+        if nwred:
+            for up in nwred.upstream:
+                inputs += self.simulation.get_entity(up).get_output(tick)
+        if nwgreen:
+            for up in nwgreen.upstream:
+                inputs += self.simulation.get_entity(up).get_output(tick)
+
+        return inputs
+
 
 class ElectricPole(ConnectedEntity):
     """Any pole of any size, is a subclass of ConnectedEntity."""
 
     def __init__(self, dictionary, simulation):
         super().__init__(dictionary, simulation)
+        self.inputs = [{'red': [], 'green': []}]
+        self.outputs = [{'red': [], 'green': []}]
+
+    def gather_input(self, tick):
+        inputs = {'red': [], 'green': []}
+        nwred = self.simulation.get_nw_with_pole(self.entity_N, 'red')
+        nwgreen = self.simulation.get_nw_with_pole(self.entity_N, 'green')
+
+        if nwred:
+            for up in nwred.upstream:
+                inputs['red'] += self.simulation.get_entity(up).get_output(tick)
+        if nwgreen:
+            for up in nwgreen.upstream:
+                inputs['green'] += self.simulation.get_entity(up).get_output(tick)
+
+        return inputs
 
     def advance(self):
-        pass
+        self.inputs += [self.gather_input(self.tick)]
+        self.tick += 1
+        input_count = {'red': {}, 'green': {}}
+
+        for color in ('red', 'green'):
+            for i in self.inputs[self.tick].get(color):
+                logging.debug("checking .. {} in {} with color {}".format(i, self, color))
+                if isinstance(i, Signal):
+                    if i.name in input_count[color]:
+                        input_count[color][i.name] += i.count
+                    else:
+                        input_count[color][i.name] = i.count
+
+        self.outputs += [{'red': [], 'green': []}]
+        for color in ('red', 'green'):
+            self.outputs[self.tick][color] += [
+                Signal({'signal': {'name': name, 'type': 'virtual'}, 'count': count}) for name, count in
+                input_count[color].items() if count != 0]
 
 
 class Constant_Combinator(ConnectedEntity):
@@ -193,19 +240,7 @@ class Combinator(ConnectedEntity):
         self.connectIN = self.connect1
         self.connectOUT = self.connect2
 
-    def gather_input(self, tick):
-        inputs = []
-        nwred = self.simulation.get_nw_with_downstream(self.entity_N, 'red')
-        nwgreen = self.simulation.get_nw_with_downstream(self.entity_N, 'green')
 
-        if nwred:
-            for up in nwred.upstream:
-                inputs += self.simulation.get_entity(up).get_output(tick)
-        if nwgreen:
-            for up in nwgreen.upstream:
-                inputs += self.simulation.get_entity(up).get_output(tick)
-
-        return inputs
 
     def advance(self):
         raise NotImplementedError
@@ -237,7 +272,7 @@ class Decider(Combinator):
         self.tick += 1
         input_count = {}
         for i in self.inputs[self.tick]:
-            print("checking .. {}".format(i))
+            logging.debug("checking .. {} in {}".format(i, self))
             if isinstance(i, Signal):
                 if i.name in input_count:
                     input_count[i.name] += i.count
@@ -265,6 +300,9 @@ class Decider(Combinator):
         if self.first_signal.get('name') == 'signal-everything':
 
             result = all([eval(str(c) + self.comparator + str(compare_value)) for c in input_count.values()])
+            logging.debug(
+                'Evaluating {} {} {} in {}'.format(self.first_signal.get('name'), self.comparator, str(compare_value),
+                                                   self))
             if result:
                 if self.output_signal.get('name') == 'signal-everything':
                     if self.copy_count:
@@ -289,7 +327,9 @@ class Decider(Combinator):
 
         elif self.first_signal.get('name') == 'signal-anything':
             result = any([eval(str(c) + self.comparator + str(compare_value)) for c in input_count.values()])
-
+            logging.debug(
+                'Evaluating {} {} {} in {}'.format(self.first_signal.get('name'), self.comparator, str(compare_value),
+                                                   self))
             if result:
                 if self.output_signal.get('name') == 'signal-everything':
                     if self.copy_count:
@@ -314,8 +354,6 @@ class Decider(Combinator):
                         self.outputs[self.tick] += [
                             Signal({'signal': {'name': name, 'type': 'virtual'}, 'count': count})]
 
-
-
                 else:
                     name = self.output_signal.get('name')
                     if self.copy_count:
@@ -329,7 +367,8 @@ class Decider(Combinator):
 
         elif self.first_signal.get('name') == 'signal-each':
             if self.output_signal.get('name') == 'signal-each':
-
+                logging.debug('Evaluating {} {} {} in {}'.format(self.first_signal.get('name'), self.comparator,
+                                                                 str(compare_value), self))
                 for inp, c in input_count.items():
                     condition = str(c) + self.comparator + str(compare_value)
                     result = eval(condition)
@@ -353,6 +392,8 @@ class Decider(Combinator):
                 if count != 0:
                     self.outputs[self.tick] += [Signal({'signal': {'name': name, 'type': 'virtual'}, 'count': count})]
 
+
+
         else:
             test_value = input_count.get(self.first_signal.get('name'), 0)
 
@@ -360,7 +401,7 @@ class Decider(Combinator):
 
             result = eval(condition)
 
-            print('Evaluating {}: {}, {}'.format(condition, result, type(result)))
+            logging.debug('Evaluating {} = {}: {} in {}'.format(self.first_signal.get('name'), condition, result, self))
 
             if result:
                 name = self.output_signal.get('name')
@@ -425,26 +466,34 @@ class Factsimcmd():
             if entitydown in nw.downstream:
                 return nw
 
+    def get_nw_with_pole(self, pole, color):
+        for nw in self.networks.get(color):
+            if pole in nw.poles:
+                return nw
+
     def add_network(self, nw):
         color = nw.color
-        existent = None
+        existent_up = None
+        existent_down = None
         for up in nw.upstream:
-            existent = self.get_nw_with_upstream(up, color)
-            if existent:
+            existent_up = self.get_nw_with_upstream(up, color)
+            if existent_up:
                 for upstream in nw.upstream:
-                    existent.include_upstream(upstream)
+                    existent_up.include_upstream(upstream)
                 for downstream in nw.downstream:
-                    existent.include_downstream(downstream)
+                    existent_up.include_downstream(downstream)
 
         for down in nw.downstream:
-            existent = self.get_nw_with_downstream(down, color)
-            if existent:
+            existent_down = self.get_nw_with_downstream(down, color)
+            if existent_down:
                 for upstream in nw.upstream:
-                    existent.include_upstream(upstream)
+                    existent_down.include_upstream(upstream)
                 for downstream in nw.downstream:
-                    existent.include_downstream(downstream)
+                    existent_down.include_downstream(downstream)
+        existent = existent_up or existent_down
         if not existent:
             self.networks[color] += [nw]
+
 
     def create_networks(self, color):
         """Create the networks"""
@@ -538,6 +587,16 @@ class Factsimcmd():
         """Get an entity by number"""
         return self.Entities[n-1]
 
+    def print_entities(self):
+        """List all entities"""
+        for e in self.Entities:
+            print(e)
+
+    def print_networks(self):
+        """List all networks"""
+        for nw in self.networks.get('red') + self.networks.get('green'):
+            print(nw)
+
 
     def draw(self):
         root = tk.Tk()
@@ -572,8 +631,7 @@ class Factsimcmd():
 
         def update_simulation():
             for ent in self.Entities:
-                if not isinstance(ent, ElectricPole):
-                    ent.get_output(int(current_tick_entry.get()))
+                ent.get_output(int(current_tick_entry.get()))
 
 
         fwd_button = tk.Button(root, text='+1 tick', command=fwd_button_fn)
@@ -588,7 +646,7 @@ class Factsimcmd():
 
         root.mainloop()
 
-
+logging.basicConfig(level=logging.DEBUG)
 
 f = Factsimcmd()
 
@@ -596,3 +654,5 @@ f = Factsimcmd()
 #print(f.get_entity(4).get_output(10))
 #print(f.get_entity(5).get_output(10))
 #print(f.get_entity(7).get_output(10))
+print(f.get_entity(6).get_output(10))
+
