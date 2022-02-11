@@ -31,6 +31,7 @@ import tkinter as tk
 import tkinter.filedialog
 import time
 from itertools import count
+import logging
 
 
 ORDER = ["signal-{}".format(n) for n in range(10)] + ["signal-{}".format(chr(n)) for n in range(65,91)] +\
@@ -54,6 +55,7 @@ def open_blueprint(filename=None):
         root.withdraw()
         filename = tkinter.filedialog.askopenfilename()
         print("opening: {} from filedialog".format(filename))
+        root.destroy()
     else:
         print("opening: {}".format(filename))
     file = open(filename, encoding='utf-8')
@@ -299,6 +301,9 @@ class Decider(Combinator):
                             Signal({'signal': {'name': name, 'type': 'virtual'}, 'count': 1}) for name in
                             input_count.keys()]
                 elif self.output_signal.get('name') == 'signal-anything':
+                    logging.warning('Using signal-anything in the output with non-vanilla signals can result \
+                                    in a different output than inside the game as the ordering in-game is not \
+                                    exported in the blueprint')
                     sorted_signals = sorted(input_count.keys(), key=lambda x: sig_sort(x))
                     name = sorted_signals[0]
                     if self.copy_count:
@@ -381,6 +386,7 @@ class Factsimcmd():
         self.blueprint = open_blueprint(filename=filename)
         self.Entities = []
         self.bpEntities = []
+        self.sim_tick = 0
         self.networks = {'red': [], 'green': []}
         self.create_entities()
         for c in ('red', 'green'):
@@ -531,6 +537,58 @@ class Factsimcmd():
     def get_entity(self, n):
         """Get an entity by number"""
         return self.Entities[n-1]
+
+
+    def draw(self):
+        root = tk.Tk()
+        root.geometry('800x600')
+
+        for i in range(3):
+            root.columnconfigure(i, weight=1)
+        root.rowconfigure(1, weight=1)
+
+        def fwd_button_fn():
+            self.sim_tick += 1
+            current_tick_entry.delete(0, len(current_tick_entry.get()))
+            current_tick_entry.insert(0, str(self.sim_tick))
+            update_simulation()
+
+        def bck_button_fn():
+            if self.sim_tick > 1:
+                self.sim_tick -= 1
+            else:
+                self.sim_tick = 0
+            current_tick_entry.delete(0, len(current_tick_entry.get()))
+            current_tick_entry.insert(0, str(self.sim_tick))
+            update_simulation()
+
+        def update_tick_fn(event):
+            if current_tick_entry.get().isdigit():
+                self.sim_tick = int(current_tick_entry.get())
+            else:
+                current_tick_entry.delete(0, len(current_tick_entry.get()))
+                current_tick_entry.insert(0, str(self.sim_tick))
+            update_simulation()
+
+        def update_simulation():
+            for ent in self.Entities:
+                if not isinstance(ent, ElectricPole):
+                    ent.get_output(int(current_tick_entry.get()))
+
+
+        fwd_button = tk.Button(root, text='+1 tick', command=fwd_button_fn)
+        fwd_button.grid(row=2, column=2, sticky='e')
+        bck_button = tk.Button(root, text='-1 tick', command=bck_button_fn)
+        bck_button.grid(row=2, column=0, sticky='w')
+        current_tick_entry = tk.Entry(root, width=5)
+        current_tick_entry.grid(row=2, column=1)
+        current_tick_entry.bind('<Return>', update_tick_fn)
+        current_tick_entry.insert(0, str(self.sim_tick))
+
+
+        root.mainloop()
+
+
 
 f = Factsimcmd()
 
