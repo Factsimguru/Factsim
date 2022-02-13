@@ -162,19 +162,7 @@ class ConnectedEntity(Entity):
             self.advance()
         return self.outputs[tick]
 
-    def gather_input(self, tick):
-        inputs = []
-        nwred = self.simulation.get_nw_with_downstream(self.entity_N, 'red')
-        nwgreen = self.simulation.get_nw_with_downstream(self.entity_N, 'green')
 
-        if nwred:
-            for up in nwred.upstream:
-                inputs += self.simulation.get_entity(up).get_output(tick)
-        if nwgreen:
-            for up in nwgreen.upstream:
-                inputs += self.simulation.get_entity(up).get_output(tick)
-
-        return inputs
 
 
 class ElectricPole(ConnectedEntity):
@@ -200,8 +188,8 @@ class ElectricPole(ConnectedEntity):
         return inputs
 
     def advance(self):
-        self.inputs += [self.gather_input(self.tick)]
         self.tick += 1
+        self.inputs += [self.gather_input(self.tick)]
         input_count = {'red': {}, 'green': {}}
 
         for color in ('red', 'green'):
@@ -245,7 +233,19 @@ class Combinator(ConnectedEntity):
         self.connectIN = self.connect1
         self.connectOUT = self.connect2
 
+    def gather_input(self, tick):
+        inputs = []
+        nwred = self.simulation.get_nw_with_downstream(self.entity_N, 'red')
+        nwgreen = self.simulation.get_nw_with_downstream(self.entity_N, 'green')
 
+        if nwred:
+            for up in nwred.upstream:
+                inputs += self.simulation.get_entity(up).get_output(tick)
+        if nwgreen:
+            for up in nwgreen.upstream:
+                inputs += self.simulation.get_entity(up).get_output(tick)
+
+        return inputs
 
     def advance(self):
         raise NotImplementedError
@@ -259,6 +259,8 @@ class Decider(Combinator):
         self.first_signal = self.c_behavior.get('first_signal')
         self.constant = self.c_behavior.get('constant')
         self.second_signal = self.c_behavior.get('second_signal')
+        self.output_signal = self.c_behavior.get('output_signal')
+        self.copy_count = self.c_behavior.get('copy_count_from_input')
         self.comparator = self.c_behavior.get('comparator')
         if self.comparator == '=':
             self.comparator = '=='
@@ -269,8 +271,6 @@ class Decider(Combinator):
         elif self.comparator == '≠':
             self.comparator = '!='
 
-        self.output_signal = self.c_behavior.get('output_signal')
-        self.copy_count = self.c_behavior.get('copy_count_from_input')
 
     def advance(self):
         self.inputs += [self.gather_input(self.tick)]
@@ -291,23 +291,19 @@ class Decider(Combinator):
             return
 
         if self.constant != None:
-
             compare_value = self.constant
-
         elif self.second_signal:
-
             compare_value = input_count.get(
                 self.second_signal.get('name'), 0)
-
         else:
             return
+
+        logging.debug(
+            'Evaluating {} {} {} in {}'.format(self.first_signal.get('name'), self.comparator, str(compare_value), self))
 
         if self.first_signal.get('name') == 'signal-everything':
 
             result = all([eval(str(c) + self.comparator + str(compare_value)) for c in input_count.values()])
-            logging.debug(
-                'Evaluating {} {} {} in {}'.format(self.first_signal.get('name'), self.comparator, str(compare_value),
-                                                   self))
             if result:
                 if self.output_signal.get('name') == 'signal-everything':
                     if self.copy_count:
@@ -331,10 +327,8 @@ class Decider(Combinator):
 
 
         elif self.first_signal.get('name') == 'signal-anything':
+
             result = any([eval(str(c) + self.comparator + str(compare_value)) for c in input_count.values()])
-            logging.debug(
-                'Evaluating {} {} {} in {}'.format(self.first_signal.get('name'), self.comparator, str(compare_value),
-                                                   self))
             if result:
                 if self.output_signal.get('name') == 'signal-everything':
                     if self.copy_count:
@@ -372,8 +366,6 @@ class Decider(Combinator):
 
         elif self.first_signal.get('name') == 'signal-each':
             if self.output_signal.get('name') == 'signal-each':
-                logging.debug('Evaluating {} {} {} in {}'.format(self.first_signal.get('name'), self.comparator,
-                                                                 str(compare_value), self))
                 for inp, c in input_count.items():
                     condition = str(c) + self.comparator + str(compare_value)
                     result = eval(condition)
@@ -384,7 +376,8 @@ class Decider(Combinator):
                         else:
                             count = 1
                         if count != 0:
-                            self.outputs[self.tick] += [Signal({'signal': {'name': name, 'type': 'virtual'}, 'count': count})]
+                            self.outputs[self.tick] += [Signal({'signal': {'name': name, 'type': 'virtual'},
+                                                                'count': count})]
 
             else:
                 count = 0
@@ -423,6 +416,81 @@ class Arithmetic(Combinator):
     
     def __init__(self, dictionary, simulation):
         super().__init__(dictionary, simulation)
+        self.c_behavior = self.c_behavior.get('arithmetic_conditions')
+        self.first_signal = self.c_behavior.get('first_signal')
+        self.second_constant = self.c_behavior.get('second_constant')
+        self.second_signal = self.c_behavior.get('second_signal')
+        self.output_signal = self.c_behavior.get('output_signal')
+        self.operation = self.c_behavior.get('operation')
+        if self.operation == '/':
+            self.operation = '//'
+        elif self.operation == '^':
+            self.operation = '**'
+        elif self.operation == 'AND':
+            self.operation = '&'
+        elif self.operation == 'OR':
+            self.operation = '|'
+        elif self.operation == 'XOR':
+            self.operation = '^'
+
+    def advance(self):
+        self.inputs += [self.gather_input(self.tick)]
+        self.tick += 1
+        input_count = {}
+        for i in self.inputs[self.tick]:
+            logging.debug("processing .. {} in {}".format(i, self))
+            if isinstance(i, Signal):
+                if i.name in input_count:
+                    input_count[i.name] += i.count
+                else:
+                    input_count[i.name] = i.count
+
+        self.outputs += [[]]
+
+        if not self.first_signal or not self.output_signal:
+            return
+
+        if self.second_constant != None:
+            second_term = self.second_constant
+        elif self.second_signal:
+            second_term = input_count.get(
+                self.second_signal.get('name'), 0)
+        else:
+            return
+
+        logging.debug(
+            'Processing {} {} {} in {}'.format(self.first_signal.get('name'), self.operation, str(second_term), self))
+
+        if self.first_signal.get('name') == 'signal-each':
+            if self.output_signal.get('name') == 'signal-each':
+                for inp, c in input_count.items():
+                    operation = str(c) + self.operation + str(second_term)
+                    result = eval(operation)
+                    if result != 0:
+                        name = inp
+                        self.outputs[self.tick] += [Signal({'signal': {'name': name, 'type': 'virtual'},
+                                                            'count': result})]
+
+            else:
+                name = self.output_signal.get('name')
+                total = 0
+                for inp, c in input_count.items():
+                    operation = str(c) + self.operation + str(second_term)
+                    result = eval(operation)
+                    total += result
+
+                if total != 0:
+                    self.outputs[self.tick] += [Signal({'signal': {'name': name, 'type': 'virtual'},
+                                                        'count': total})]
+
+        else:
+            first_term = input_count.get(self.first_signal.get('name'), 0)
+            operation = str(first_term) + self.operation + str(second_term)
+            result = eval(operation)
+            if result != 0:
+                name = self.output_signal.get('name')
+                self.outputs[self.tick] += [Signal({'signal': {'name': name, 'type': 'virtual'},
+                                                    'count': result})]
 
 
 class Factsimcmd():
