@@ -271,6 +271,10 @@ class Decider(Combinator):
         elif self.comparator == '≠':
             self.comparator = '!='
 
+        self.advance()
+        self.tick -= 1
+        self.inputs = [self.inputs[1]]
+        self.outputs = [self.outputs[1]]
 
     def advance(self):
         self.inputs += [self.gather_input(self.tick)]
@@ -777,6 +781,9 @@ class Factsimcmd():
 logging.basicConfig(level=logging.DEBUG)
 
 f = Factsimcmd()
+
+f.scale_coordinates(60)
+f.draw()
 
 #print(f.get_entity(3).get_output(10))
 #print(f.get_entity(4).get_output(10))
