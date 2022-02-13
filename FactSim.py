@@ -32,7 +32,9 @@ import tkinter.filedialog
 import time
 from itertools import count
 import logging
+from functools import partial
 
+VERSION = '0.0'
 
 ORDER = ["signal-{}".format(n) for n in range(10)] + ["signal-{}".format(chr(n)) for n in range(65,91)] +\
         ["signal-red", "signal-green", "signal-blue", "signal-yellow", "signal-pink", "signal-cyan", "signal-white", \
@@ -127,6 +129,9 @@ class Entity():
 
         return 'Entity nr {:0>3d} - {}'.format(self.entity_N,  self.name)
 
+    def label(self):
+
+        return 'Entity nr {:0>3d} \n {}'.format(self.entity_N,  self.name)
 
 class ConnectedEntity(Entity):
     """Any entity that can have connections"""
@@ -432,6 +437,8 @@ class Factsimcmd():
         self.create_entities()
         for c in ('red', 'green'):
             self.create_networks(c)
+        self.normalize_coordinates()
+
 
     def create_entities(self):
         """Parse the blueprint into objects. Fill the Entities list."""
@@ -598,9 +605,30 @@ class Factsimcmd():
             print(nw)
 
 
+    def normalize_coordinates(self):
+        xmin = 0
+        ymin = 0
+        for ent in self.Entities:
+            x = ent.position['x']
+            y = ent.position['y']
+            xmin = min(xmin, x)
+            ymin = min(ymin, y)
+        for ent in self.Entities:
+            ent.position['x'] -= xmin
+            ent.position['y'] -= ymin
+
+    def scale_coordinates(self, factor):
+        for ent in self.Entities:
+            ent.position['x'] *= factor
+            ent.position['y'] *= factor
+
+
+
     def draw(self):
+        """Draw a window with GUI to interact with the simulation"""
         root = tk.Tk()
         root.geometry('800x600')
+        root.title('FactSim v{}'.format(VERSION))
 
         for i in range(3):
             root.columnconfigure(i, weight=1)
@@ -629,10 +657,26 @@ class Factsimcmd():
                 current_tick_entry.insert(0, str(self.sim_tick))
             update_simulation()
 
+        def show_entity_info(entity):
+            """Open a window and show the relevant information"""
+            info_window = tk.Toplevel(root)
+            info_window.geometry('400x500')
+            info_window.title(ent.__str__())
+            output = entity.outputs[self.sim_tick]
+            if isinstance(entity, ElectricPole):
+                text = tk.Label(info_window, text="{}\nTick nr. {}\nSignals passing:\n".format(entity, self.sim_tick) +
+                                                  'Red:\n' + '\n'.join([str(i) for i in output['red']]) +
+                                                  '\nGreen:\n' + '\n'.join([str(i) for i in output['green']]), justify=tk.LEFT)
+
+
+            else:
+                text = tk.Label(info_window, text="{}\nTick nr. {}\nOutput signals:\n".format(entity, self.sim_tick) +
+                                                  '\n'.join([str(i) for i in output]), justify=tk.LEFT)
+            text.pack()
+
         def update_simulation():
             for ent in self.Entities:
                 ent.get_output(int(current_tick_entry.get()))
-
 
         fwd_button = tk.Button(root, text='+1 tick', command=fwd_button_fn)
         fwd_button.grid(row=2, column=2, sticky='e')
@@ -642,7 +686,23 @@ class Factsimcmd():
         current_tick_entry.grid(row=2, column=1)
         current_tick_entry.bind('<Return>', update_tick_fn)
         current_tick_entry.insert(0, str(self.sim_tick))
+        window = tk.Frame(root, width=700, height=500)
+        window.grid(row=1, column=1)
+        display = tk.Canvas(window, bg='#FFFFFF', width=700, height=500, scrollregion=(0,0,1400,1000)) # maybe later scrollregion = canvas.bbox('all')
+        hbar = tk.Scrollbar(window, orient=tk.HORIZONTAL)
+        hbar.pack(side=tk.BOTTOM, fill=tk.X)
+        hbar.config(command=display.xview)
+        vbar = tk.Scrollbar(window, orient=tk.VERTICAL)
+        vbar.pack(side=tk.RIGHT, fill=tk.Y)
+        vbar.config(command=display.yview)
+        display.config(xscrollcommand=hbar.set, yscrollcommand=vbar.set)
+        display.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
 
+        for ent in self.Entities:
+            x = ent.position['x']
+            y = ent.position['y']
+            button = tk.Button(display, text=ent.label(), bg='gold', command=partial(show_entity_info, ent))
+            button.place(x=x, y=y)
 
         root.mainloop()
 
@@ -654,5 +714,5 @@ f = Factsimcmd()
 #print(f.get_entity(4).get_output(10))
 #print(f.get_entity(5).get_output(10))
 #print(f.get_entity(7).get_output(10))
-print(f.get_entity(6).get_output(10))
+#print(f.get_entity(6).get_output(10))
 
