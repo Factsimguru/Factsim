@@ -614,6 +614,8 @@ class Factsimcmd():
         for c in ('red', 'green'):
             self.create_networks(c)
         self.normalize_coordinates()
+        self.scale_coordinates(80)
+        self.draw()
 
 
     def create_entities(self):
@@ -889,7 +891,7 @@ class Factsimcmd():
         current_tick_entry.insert(0, str(self.sim_tick))
         window = tk.Frame(root, width=700, height=500)
         window.grid(row=1, column=1)
-        display = tk.Canvas(window, bg='#FFFFFF', width=700, height=500, scrollregion=(0,0,1400,1000)) # maybe later scrollregion = canvas.bbox('all')
+        display = tk.Canvas(window, bg='#FFFFFF', width=700, height=500)
         hbar = tk.Scrollbar(window, orient=tk.HORIZONTAL)
         hbar.pack(side=tk.BOTTOM, fill=tk.X)
         hbar.config(command=display.xview)
@@ -903,7 +905,7 @@ class Factsimcmd():
             x = ent.position['x']
             y = ent.position['y']
             button = tk.Button(display, text=ent.label(), bg='gold', command=partial(show_entity_info, ent))
-            button.place(x=x, y=y)
+            display.create_window(x, y, window=button)
 
         fwd_button_fn()
         root.mainloop()
@@ -912,9 +914,6 @@ class Factsimcmd():
 logging.basicConfig(level=logging.DEBUG)
 
 f = Factsimcmd()
-
-f.scale_coordinates(60)
-f.draw()
 
 #print(f.get_entity(3).get_output(10))
 #print(f.get_entity(4).get_output(10))
