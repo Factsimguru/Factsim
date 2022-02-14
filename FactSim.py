@@ -841,7 +841,7 @@ class Factsimcmd():
             if self.sim_tick > 1:
                 self.sim_tick -= 1
             else:
-                self.sim_tick = 0
+                self.sim_tick = 1
             current_tick_entry.delete(0, len(current_tick_entry.get()))
             current_tick_entry.insert(0, str(self.sim_tick))
             update_simulation()
@@ -905,7 +905,9 @@ class Factsimcmd():
             button = tk.Button(display, text=ent.label(), bg='gold', command=partial(show_entity_info, ent))
             button.place(x=x, y=y)
 
+        fwd_button_fn()
         root.mainloop()
+
 
 logging.basicConfig(level=logging.DEBUG)
 
