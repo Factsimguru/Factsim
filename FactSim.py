@@ -530,9 +530,7 @@ class Arithmetic(Combinator):
         self.second_signal = self.c_behavior.get('second_signal')
         self.output_signal = self.c_behavior.get('output_signal')
         self.operation = self.c_behavior.get('operation')
-        if self.operation == '/':
-            self.operation = '//'
-        elif self.operation == '^':
+        if self.operation == '^':
             self.operation = '**'
         elif self.operation == 'AND':
             self.operation = '&'
@@ -573,7 +571,7 @@ class Arithmetic(Combinator):
             if self.output_signal.get('name') == 'signal-each':
                 for inp, c in input_count.items():
                     operation = str(c) + self.operation + str(second_term)
-                    result = eval(operation)
+                    result = int(eval(operation))
                     if result != 0:
                         name = inp
                         self.outputs[self.tick] += [Signal({'signal': {'name': name, 'type': 'virtual'},
@@ -584,7 +582,7 @@ class Arithmetic(Combinator):
                 total = 0
                 for inp, c in input_count.items():
                     operation = str(c) + self.operation + str(second_term)
-                    result = eval(operation)
+                    result = int(eval(operation))
                     total += result
 
                 if total != 0:
@@ -604,7 +602,8 @@ class Arithmetic(Combinator):
 class Factsimcmd():
     """Class holding all the Factsim simulation."""
 
-    def __init__(self, filename=None):
+    def __init__(self, filename=None, loglevel=logging.ERROR):
+        logging.basicConfig(level=loglevel)
         self.blueprint = open_blueprint(filename=filename)
         self.Entities = []
         self.bpEntities = []
@@ -911,13 +910,5 @@ class Factsimcmd():
         root.mainloop()
 
 
-logging.basicConfig(level=logging.DEBUG)
-
-f = Factsimcmd()
-
-#print(f.get_entity(3).get_output(10))
-#print(f.get_entity(4).get_output(10))
-#print(f.get_entity(5).get_output(10))
-#print(f.get_entity(7).get_output(10))
-#print(f.get_entity(6).get_output(10))
-
+if __name__ == "__main__":
+    f = Factsimcmd()
