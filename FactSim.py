@@ -37,7 +37,7 @@ from functools import partial
 VERSION = '0.0'
 
 ORDER = ["signal-{}".format(n) for n in range(10)] + ["signal-{}".format(chr(n)) for n in range(65,91)] +\
-        ["signal-red", "signal-green", "signal-blue", "signal-yellow", "signal-pink", "signal-cyan", "signal-white", \
+        ["signal-red", "signal-green", "signal-blue", "signal-yellow", "signal-pink", "signal-cyan", "signal-white",
          "signal-grey", "signal-black", "signal-check", "signal-info", "signal-dot"]
 
 def sig_sort(signal):
@@ -155,9 +155,14 @@ class ConnectedEntity(Entity):
         self.connectOUT = None
 
     def advance(self):
+        """Method to generate the output in the current tick with the inputs from the previous one."""
         raise NotImplementedError
 
     def get_output(self, tick):
+        """Get the output of an entity in desired tick.
+
+        If necessary advance the entity enough to be able to retrieve the output"""
+
         while len(self.outputs) < tick + 1:
             self.advance()
         return self.outputs[tick]
@@ -174,6 +179,7 @@ class ElectricPole(ConnectedEntity):
         self.outputs = [{'red': [], 'green': []}]
 
     def gather_input(self, tick):
+        """Get the inputs seen by the pole in desired tick."""
         inputs = {'red': [], 'green': []}
         nwred = self.simulation.get_nw_with_pole(self.entity_N, 'red')
         nwgreen = self.simulation.get_nw_with_pole(self.entity_N, 'green')
@@ -223,6 +229,103 @@ class Constant_Combinator(ConnectedEntity):
         self.outputs += [[Signal(f) for f in self.c_behavior]]
 
 
+class Lamp(ConnectedEntity):
+    """Lamp that emits light depending on a condition"""
+
+    def __init__(self, dictionary, simulation):
+        super().__init__(dictionary, simulation)
+        self.connectIN = self.connect1
+        self.c_behavior = dictionary.get('control_behavior').get('circuit_condition')
+        self.first_signal = self.c_behavior.get('first_signal')
+        self.constant = self.c_behavior.get('constant')
+        self.second_signal = self.c_behavior.get('second_signal')
+        self.comparator = self.c_behavior.get('comparator')
+        if self.comparator == '=':
+            self.comparator = '=='
+        elif self.comparator == '≥':
+            self.comparator = '>='
+        elif self.comparator == '≤':
+            self.comparator = '<='
+        elif self.comparator == '≠':
+            self.comparator = '!='
+        # Initialize, so if there is output in tick 0 we get it
+        self.advance()
+        self.tick -= 1
+        self.inputs = [self.inputs[1]]
+        self.outputs = [self.outputs[1]]
+
+    def gather_input(self, tick):
+        """Get the inputs seen by the Lamp in desired tick."""
+        inputs = []
+        nwred = self.simulation.get_nw_with_downstream(self.entity_N, 'red')
+        nwgreen = self.simulation.get_nw_with_downstream(self.entity_N, 'green')
+
+        if nwred:
+            for up in nwred.upstream:
+                inputs += self.simulation.get_entity(up).get_output(tick)
+        if nwgreen:
+            for up in nwgreen.upstream:
+                inputs += self.simulation.get_entity(up).get_output(tick)
+
+        return inputs
+
+    def advance(self):
+        self.inputs += [self.gather_input(self.tick)]
+        self.tick += 1
+        input_count = {}
+        for i in self.inputs[self.tick]:
+            logging.debug("checking .. {} in {}".format(i, self))
+            if isinstance(i, Signal):
+                if i.name in input_count:
+                    input_count[i.name] += i.count
+                else:
+                    input_count[i.name] = i.count
+
+        self.outputs += [{}]
+
+        if not self.first_signal:
+            return
+        if self.constant != None:
+            compare_value = self.constant
+        elif self.second_signal:
+            compare_value = input_count.get(
+                self.second_signal.get('name'), 0)
+        else:
+            return
+
+        logging.debug(
+            'Evaluating {} {} {} in {}'.format(self.first_signal.get('name'), self.comparator, str(compare_value),
+                                               self))
+        if self.first_signal.get('name') == 'signal-everything':
+
+            result = all([eval(str(c) + self.comparator + str(compare_value)) for c in input_count.values()])
+            if result:
+                self.outputs[self.tick] = {'light': 'ON', 'color': 'white'}       # no colors for now
+            else:
+                self.outputs[self.tick] = {'light': 'OFF', 'color': 'white'}
+
+        elif self.first_signal.get('name') == 'signal-anything':
+
+            result = any([eval(str(c) + self.comparator + str(compare_value)) for c in input_count.values()])
+            if result:
+                self.outputs[self.tick] = {'light': 'ON', 'color': 'white'}  # no colors for now
+            else:
+                self.outputs[self.tick] = {'light': 'OFF', 'color': 'white'}
+
+        else:
+            test_value = input_count.get(self.first_signal.get('name'), 0)
+
+            condition = str(test_value) + self.comparator + str(compare_value)
+
+            result = eval(condition)
+
+            logging.debug('Evaluating {} = {}: {} in {}'.format(self.first_signal.get('name'), condition, result, self))
+
+            if result:
+                self.outputs[self.tick] = {'light': 'ON', 'color': 'white'}  # no colors for now
+            else:
+                self.outputs[self.tick] = {'light': 'OFF', 'color': 'white'}
+
 class Combinator(ConnectedEntity):
     """Generic class for combinators with 2 attachments"""
 
@@ -234,6 +337,7 @@ class Combinator(ConnectedEntity):
         self.connectOUT = self.connect2
 
     def gather_input(self, tick):
+        """Get the inputs seen by the combinator in desired tick."""
         inputs = []
         nwred = self.simulation.get_nw_with_downstream(self.entity_N, 'red')
         nwgreen = self.simulation.get_nw_with_downstream(self.entity_N, 'green')
@@ -270,7 +374,7 @@ class Decider(Combinator):
             self.comparator = '<='
         elif self.comparator == '≠':
             self.comparator = '!='
-
+        # Initialize, so if there is output in tick 0 we get it
         self.advance()
         self.tick -= 1
         self.inputs = [self.inputs[1]]
@@ -525,6 +629,8 @@ class Factsimcmd():
                 self.Entities += [Decider(e.dictionary, self)]
             elif e.name == 'arithmetic-combinator':
                 self.Entities += [Arithmetic(e.dictionary, self)]
+            elif 'lamp' in e.name.split('-'):
+                self.Entities += [Lamp(e.dictionary, self)]
             else:
                 self.Entities += [e]
 
@@ -609,7 +715,7 @@ class Factsimcmd():
                 continue
             if isinstance(e, Constant_Combinator):
                 if e.connectOUT.get(color):
-                    nw = self.get_nw_for_Entity(e, color)
+                    nw = self.get_nw_with_upstream(e, color)
                     if not nw:
                         nw = Network(upstream=[e.entity_N], color=color)
                     connections = e.connect1.get(color)
@@ -660,6 +766,25 @@ class Factsimcmd():
                         elif side == 1:
                             nw.include_downstream(ent_id)
                     self.add_network(nw)
+
+            elif isinstance(e, Lamp):
+                if e.connectIN.get(color):
+                    nw = self.get_nw_with_downstream(e.entity_N, color)
+                    if not nw:
+                        nw = Network(downstream=[e.entity_N], color=color)
+
+                    for conn_in in e.connectIN.get(color):
+                        ent_id = conn_in.get('entity_id')
+                        side = conn_in.get('circuit_id')
+                        ent = self.get_entity(ent_id)
+                        if isinstance(ent, Constant_Combinator):
+                            nw.include_upstream(ent_id)
+                        elif side == 2:
+                            nw.include_upstream(ent_id)
+                        elif side == 1:
+                            nw.include_downstream(ent_id)
+                    self.add_network(nw)
+
 
 
     def get_entity(self, n):
@@ -739,6 +864,10 @@ class Factsimcmd():
                 text = tk.Label(info_window, text="{}\nTick nr. {}\nSignals passing:\n".format(entity, self.sim_tick) +
                                                   'Red:\n' + '\n'.join([str(i) for i in output['red']]) +
                                                   '\nGreen:\n' + '\n'.join([str(i) for i in output['green']]), justify=tk.LEFT)
+
+            elif isinstance(entity, Lamp):
+                text = tk.Label(info_window, text="{}\nTick nr. {}\nLight status: {}\nColour: {}".format(entity,
+                                self.sim_tick, output['light'], output['color']))
 
 
             else:
