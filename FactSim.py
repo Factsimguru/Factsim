@@ -124,6 +124,9 @@ class Entity():
         self.entity_N = dictionary['entity_number']
         self.name = dictionary['name']
         self.position = dictionary['position']
+        self.tick = 0
+        self.inputs = [[]]
+        self.outputs = [[]]
 
     def __str__(self):
 
@@ -133,6 +136,9 @@ class Entity():
 
         return 'Entity nr {:0>3d} \n {}'.format(self.entity_N,  self.name)
 
+
+
+
 class ConnectedEntity(Entity):
     """Any entity that can have connections"""
 
@@ -140,9 +146,6 @@ class ConnectedEntity(Entity):
         super().__init__(dictionary)
         self.simulation = simulation
         self.connections = dictionary.get('connections')
-        self.tick = 0
-        self.inputs = [[]]
-        self.outputs = [[]]
         if self.connections:
             self.connect1 = self.connections.get(
                 '1') or {'red': [], 'green': []}
@@ -156,7 +159,8 @@ class ConnectedEntity(Entity):
 
     def advance(self):
         """Method to generate the output in the current tick with the inputs from the previous one."""
-        raise NotImplementedError
+        print("WARNING!!!: entity {} is not implemented in the simulation".format(self))  # It it is not overriden
+        self.outputs += [[]]
 
     def get_output(self, tick):
         """Get the output of an entity in desired tick.
@@ -219,7 +223,6 @@ class Constant_Combinator(ConnectedEntity):
 
     def __init__(self, dictionary, simulation):
         super().__init__(dictionary, simulation)
-        self.direction = dictionary.get('direction')
         self.c_behavior = dictionary.get('control_behavior').get('filters')
         self.connectOUT = self.connect1
         self.outputs = [[Signal(f) for f in self.c_behavior]]
@@ -227,6 +230,20 @@ class Constant_Combinator(ConnectedEntity):
     def advance(self):
         self.tick += 1
         self.outputs += [[Signal(f) for f in self.c_behavior]]
+
+
+class Pushbutton(ConnectedEntity):
+    """Pulses a signal for one tick in tick nr 1"""
+
+    def __init__(self, dictionary, simulation):
+        super().__init__(dictionary, simulation)
+        self.c_behavior = dictionary.get('control_behavior').get('filters')
+        self.connectOUT = self.connect1
+        self.outputs = [[Signal(f) for f in self.c_behavior], [Signal(f) for f in self.c_behavior]]
+
+    def advance(self):
+        self.tick += 1
+        self.outputs += [[]]
 
 
 class Lamp(ConnectedEntity):
@@ -632,8 +649,10 @@ class Factsimcmd():
                 self.Entities += [Arithmetic(e.dictionary, self)]
             elif 'lamp' in e.name.split('-'):
                 self.Entities += [Lamp(e.dictionary, self)]
+            elif e.name == 'pushbutton':
+                self.Entities += [Pushbutton(e.dictionary, self)]
             else:
-                self.Entities += [e]
+                self.Entities += [ConnectedEntity(e.dictionary, self)]
 
     def get_nw_for_Entity(self, entity, color):
         """get the network object that has entity as member"""
