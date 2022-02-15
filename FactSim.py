@@ -225,21 +225,19 @@ class Constant_Combinator(ConnectedEntity):
         super().__init__(dictionary, simulation)
         self.c_behavior = dictionary.get('control_behavior').get('filters')
         self.connectOUT = self.connect1
-        self.outputs = [[Signal(f) for f in self.c_behavior]]
+        self.outputs = [[Signal(con) for con in self.c_behavior]]
 
     def advance(self):
         self.tick += 1
-        self.outputs += [[Signal(f) for f in self.c_behavior]]
+        self.outputs += [[Signal(con) for con in self.c_behavior]]
 
 
-class Pushbutton(ConnectedEntity):
+class Pushbutton(Constant_Combinator):
     """Pulses a signal for one tick in tick nr 1"""
 
     def __init__(self, dictionary, simulation):
         super().__init__(dictionary, simulation)
-        self.c_behavior = dictionary.get('control_behavior').get('filters')
-        self.connectOUT = self.connect1
-        self.outputs = [[Signal(f) for f in self.c_behavior], [Signal(f) for f in self.c_behavior]]
+        self.outputs = [[], [Signal(con) for con in self.c_behavior]]
 
     def advance(self):
         self.tick += 1
