@@ -1,43 +1,50 @@
-<div id="table-of-contents">
-<h2>Table of Contents</h2>
-<div id="text-table-of-contents">
-<ul>
-<li><a href="#orgce14710">1. Factsim</a></li>
-<li><a href="#orgf0690ee">2. Current features:</a></li>
-<li><a href="#orgf411e12">3. Beware:</a></li>
-<li><a href="#orge4a2c02">4. Future:</a></li>
-</ul>
-</div>
-</div>
+- [Factsim](#org656c89b)
+- [Current features:](#org0dfb227)
+- [Beware:](#orge5f96ea)
+- [Future:](#org5361b1a)
+- [How to use: Detailed example](#org0dd3593)
+- [Thanks:](#orgf270810)
 
-<a id="orgce14710"></a>
+
+<a id="org656c89b"></a>
 
 # Factsim
 
-a simulator for Factorio circuit network entities
+A simulator for Factorio circuit network entities
 
 
-<a id="orgf0690ee"></a>
+<a id="org0dfb227"></a>
 
 # Current features:
 
--   simulates the output of different componets
+-   Has a basic GUI that lets you operate the circuit and examine the entities.
+-   simulates the output of different componets. The components currently implemented are: -Constant combinator -Decider combinator -Arithmetic combinator -Electric poles and substation -Lamps -Pushbuttons
 -   has a factsim class that can make the components interact
 
 
-<a id="orgf411e12"></a>
+<a id="orge5f96ea"></a>
 
 # Beware:
 
 -   it is not well documented
--   it fails in complex circuits
+-   Some complex circuits with a lot of loopbacks are behaving strangely at the moment.
 
 
-<a id="orge4a2c02"></a>
+<a id="org5361b1a"></a>
 
 # Future:
 
 -   I'll try to add some documentation, but if you have dobts please ask, I'm very new to programming so I'm grateful for feedback.
--   I dont know if sequential programming is giving problems in the simulation so I may try the asyncio since I also want to get familiar with it for other projects just as an excersise
--   If people get interested then proper tests and debugging must be done to find out why in my complex train system it fails. The circuit is very complex with many combinators looped, bridged and all kind of undecorous things going on so it'll be tough.
+-   I think tkinter is a bit limited as a GUI framework, ill try to get the best out of it and maybe in the future overhaul it with a different framework.
 
+
+<a id="org0dd3593"></a>
+
+# How to use: Detailed example
+
+
+<a id="orgf270810"></a>
+
+# Thanks:
+
+-   Thanks to the people from the fCPU mod discord, specially Mernon, for their motivation.
