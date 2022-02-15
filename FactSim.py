@@ -81,6 +81,12 @@ class Signal():
     def __str__(self):
         return "{} = {}".format(self.name, self.count)
 
+    def __eq__(self, other):
+        if isinstance(other, Signal) and self.name == other.name and \
+                self.kind == other.kind and self.count == other.count:
+            return True
+        else:
+            return False
 
 class Network():
     """abstraction for the connections"""
