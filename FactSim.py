@@ -216,12 +216,14 @@ class ElectricPole(ConnectedEntity):
                         input_count[color][i.name] += i.count
                     else:
                         input_count[color][i.name] = i.count
+                    if input_count[color][i.name] == 0:
+                        del (input_count[color][i.name])
 
         self.outputs += [{'red': [], 'green': []}]
         for color in ('red', 'green'):
             self.outputs[self.tick][color] += [
                 Signal({'signal': {'name': name, 'type': 'virtual'}, 'count': count}) for name, count in
-                input_count[color].items() if count != 0]
+                input_count[color].items()]
 
 
 class Constant_Combinator(ConnectedEntity):
@@ -412,6 +414,8 @@ class Decider(Combinator):
                     input_count[i.name] += i.count
                 else:
                     input_count[i.name] = i.count
+                if input_count[i.name] == 0:
+                    del(input_count[i.name])
 
         self.outputs += [[]]
 
@@ -571,6 +575,8 @@ class Arithmetic(Combinator):
                     input_count[i.name] += i.count
                 else:
                     input_count[i.name] = i.count
+                if input_count[i.name] == 0:
+                    del(input_count[i.name])
 
         self.outputs += [[]]
 
@@ -635,7 +641,7 @@ class Factsimcmd():
             self.create_networks(c)
         self.normalize_coordinates()
         self.scale_coordinates(80)
-        self.draw()
+        #self.draw()
 
 
     def create_entities(self):
@@ -827,8 +833,8 @@ class Factsimcmd():
 
 
     def normalize_coordinates(self):
-        xmin = 0
-        ymin = 0
+        xmin = self.Entities[0].position['x']
+        ymin = self.Entities[0].position['y']
         for ent in self.Entities:
             x = ent.position['x']
             y = ent.position['y']
@@ -933,5 +939,8 @@ class Factsimcmd():
         root.mainloop()
 
 
-if __name__ == "__main__":
-    f = Factsimcmd()
+f = Factsimcmd()
+f.get_entity(5).get_output(10)
+
+#if __name__ == "__main__":
+#    f = Factsimcmd()
