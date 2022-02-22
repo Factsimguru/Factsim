@@ -40,6 +40,7 @@ ORDER = ["signal-{}".format(n) for n in range(10)] + ["signal-{}".format(chr(n))
         ["signal-red", "signal-green", "signal-blue", "signal-yellow", "signal-pink", "signal-cyan", "signal-white",
          "signal-grey", "signal-black", "signal-check", "signal-info", "signal-dot"]
 
+
 def sig_sort(signal):
     """Helper function to order the signals"""
     if signal not in ORDER:
@@ -635,6 +636,7 @@ class Factsimcmd():
         self.Entities = []
         self.bpEntities = []
         self.sim_tick = 0
+        self.opened_windows = {}
         self.networks = {'red': [], 'green': []}
         self.create_entities()
         for c in ('red', 'green'):
@@ -935,11 +937,16 @@ class Factsimcmd():
                                                   "\n\nOutput signals:\n" +
                                                   '\n'.join([str(i) for i in output]), justify=tk.LEFT)
             text.pack()
+            if entity not in self.opened_windows:
+                self.opened_windows.update({entity: info_window})
 
 
         def update_simulation():
-            for ent in self.Entities:
-                ent.get_output(int(current_tick_entry.get()))
+            for up_ent in self.Entities:
+                up_ent.get_output(int(current_tick_entry.get()))
+            for enti, win in self.opened_windows.items():
+                win.destroy()
+                show_entity_info(enti)
 
 
         fwd_button = tk.Button(root, text='+1 tick', command=fwd_button_fn)
