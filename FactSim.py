@@ -888,26 +888,59 @@ class Factsimcmd():
             """Open a window and show the relevant information"""
             info_window = tk.Toplevel(root)
             info_window.geometry('400x500')
-            info_window.title(ent.__str__())
+            info_window.title(str(entity))
             output = entity.outputs[self.sim_tick]
             if isinstance(entity, ElectricPole):
-                text = tk.Label(info_window, text="{}\nTick nr. {}\nSignals passing:\n".format(entity, self.sim_tick) +
-                                                  'Red:\n' + '\n'.join([str(i) for i in output['red']]) +
-                                                  '\nGreen:\n' + '\n'.join([str(i) for i in output['green']]), justify=tk.LEFT)
+                text = tk.Label(info_window, text="{}\nTick nr. {}\n\nSignals passing:\n".format(entity, self.sim_tick) +
+                                                  '\nRed:\n' + '\n'.join([str(i) for i in output['red']]) +
+                                                  '\n\nGreen:\n' + '\n'.join([str(i) for i in output['green']]), justify=tk.LEFT)
 
             elif isinstance(entity, Lamp):
-                text = tk.Label(info_window, text="{}\nTick nr. {}\nLight status: {}\nColour: {}".format(entity,
-                                self.sim_tick, output['light'], output['color']))
+                firstcond = entity.first_signal['name']
+                secondcond = entity.comparator
+                if entity.second_signal:
+                    thirdcond = entity.second_signal.get('name')
+                else:
+                    thirdcond = entity.constant
+
+                text = tk.Label(info_window, text="{}\nTick nr. {}\n\nConditions: {} {} {}\n\nLight status: {}\nColour: {}".format(entity,
+                                self.sim_tick, firstcond, secondcond, thirdcond, output['light'], output['color']))
 
 
             else:
-                text = tk.Label(info_window, text="{}\nTick nr. {}\nOutput signals:\n".format(entity, self.sim_tick) +
+                inp = entity.inputs[self.sim_tick]
+                if isinstance(entity, Decider):
+                    firstcond = entity.first_signal['name']
+                    secondcond = entity.comparator
+                    if entity.second_signal:
+                        thirdcond = entity.second_signal.get('name')
+                    else:
+                        thirdcond = entity.constant
+                elif isinstance(entity, Arithmetic):
+                    firstcond = entity.first_signal['name']
+                    secondcond = entity.operation
+                    if entity.second_signal:
+                        thirdcond = entity.second_signal.get('name')
+                    else:
+                        thirdcond = entity.second_constant
+                else:
+                    firstcond = "n/a"
+                    secondcond = "n/a"
+                    thirdcond = "n/a"
+
+                text = tk.Label(info_window, text="{}\nTick nr. {}\n".format(entity, self.sim_tick) +
+                                                  "\nConditions: {} {} {}\n".format(firstcond, secondcond, thirdcond) +
+                                                  "\nInput signals:\n" +
+                                                  '\n'.join([str(i) for i in inp]) +
+                                                  "\n\nOutput signals:\n" +
                                                   '\n'.join([str(i) for i in output]), justify=tk.LEFT)
             text.pack()
+
 
         def update_simulation():
             for ent in self.Entities:
                 ent.get_output(int(current_tick_entry.get()))
+
 
         fwd_button = tk.Button(root, text='+1 tick', command=fwd_button_fn)
         fwd_button.grid(row=2, column=2, sticky='e')
