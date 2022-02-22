@@ -641,7 +641,7 @@ class Factsimcmd():
             self.create_networks(c)
         self.normalize_coordinates()
         self.scale_coordinates(80)
-        #self.draw()
+        self.draw()
 
 
     def create_entities(self):
@@ -939,8 +939,8 @@ class Factsimcmd():
         root.mainloop()
 
 
-f = Factsimcmd()
-f.get_entity(5).get_output(10)
+#f = Factsimcmd()
+#f.get_entity(5).get_output(10)
 
-#if __name__ == "__main__":
-#    f = Factsimcmd()
+if __name__ == "__main__":
+    f = Factsimcmd()
