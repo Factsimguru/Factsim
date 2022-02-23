@@ -886,11 +886,18 @@ class Factsimcmd():
                 current_tick_entry.insert(0, str(self.sim_tick))
             update_simulation()
 
+        def on_close(entity):
+            logging.debug("trying to destroy {} for {}".format(self.opened_windows.get(entity), entity))
+            self.opened_windows.get(entity).destroy()
+            del self.opened_windows[entity]
+
         def show_entity_info(entity):
             """Open a window and show the relevant information"""
             info_window = tk.Toplevel(root)
             info_window.geometry('400x500')
             info_window.title(str(entity))
+            info_window.entity = entity
+            info_window.protocol('WM_DELETE_WINDOW', partial(on_close, info_window.entity))
             output = entity.outputs[self.sim_tick]
             if isinstance(entity, ElectricPole):
                 text = tk.Label(info_window, text="{}\nTick nr. {}\n\nSignals passing:\n".format(entity, self.sim_tick) +
@@ -938,14 +945,16 @@ class Factsimcmd():
                                                   '\n'.join([str(i) for i in output]), justify=tk.LEFT)
             text.pack()
             if entity not in self.opened_windows:
-                self.opened_windows.update({entity: info_window})
+                logging.debug("adding the window {} to the list of opened windows with {} as key.".format(info_window, entity))
+                self.opened_windows[entity] = info_window
 
 
         def update_simulation():
             for up_ent in self.Entities:
                 up_ent.get_output(int(current_tick_entry.get()))
-            for enti, win in self.opened_windows.items():
-                win.destroy()
+            for enti, info_window in self.opened_windows.items():
+                logging.debug("recreating window {} for {}".format(info_window, enti))
+                info_window.destroy()
                 show_entity_info(enti)
 
 
@@ -983,4 +992,5 @@ class Factsimcmd():
 #f.get_entity(5).get_output(10)
 
 if __name__ == "__main__":
-    f = Factsimcmd()
+
+    f = Factsimcmd(loglevel=logging.DEBUG)
