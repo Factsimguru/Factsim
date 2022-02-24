@@ -630,7 +630,7 @@ class Arithmetic(Combinator):
 class Factsimcmd():
     """Class holding all the Factsim simulation."""
 
-    def __init__(self, filename=None, loglevel=logging.ERROR):
+    def __init__(self, filename=None, loglevel=logging.ERROR, scale=80):
         logging.basicConfig(level=loglevel)
         self.blueprint = open_blueprint(filename=filename)
         self.Entities = []
@@ -642,7 +642,7 @@ class Factsimcmd():
         for c in ('red', 'green'):
             self.create_networks(c)
         self.normalize_coordinates()
-        self.scale_coordinates(80)
+        self.scale_coordinates(scale)
         self.draw()
 
 
@@ -947,14 +947,15 @@ class Factsimcmd():
             if entity not in self.opened_windows:
                 logging.debug("adding the window {} to the list of opened windows with {} as key.".format(info_window, entity))
                 self.opened_windows[entity] = info_window
-
+            else:
+                self.opened_windows[entity].destroy()
+                self.opened_windows[entity] = info_window
 
         def update_simulation():
             for up_ent in self.Entities:
                 up_ent.get_output(int(current_tick_entry.get()))
             for enti, info_window in self.opened_windows.items():
                 logging.debug("recreating window {} for {}".format(info_window, enti))
-                info_window.destroy()
                 show_entity_info(enti)
 
 
@@ -993,4 +994,5 @@ class Factsimcmd():
 
 if __name__ == "__main__":
 
-    f = Factsimcmd(loglevel=logging.DEBUG)
+    f = Factsimcmd()
+    #f = Factsimcmd(loglevel=logging.DEBUG)
