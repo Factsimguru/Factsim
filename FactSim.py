@@ -631,18 +631,19 @@ class Arithmetic(Combinator):
 class Factsimcmd():
     """Class holding all the Factsim simulation."""
 
-    def __init__(self, filename=None, loglevel=logging.ERROR):
+    def __init__(self, filename=None, loglevel=logging.ERROR, scale=80):
         logging.basicConfig(level=loglevel)
         self.blueprint = open_blueprint(filename=filename)
         self.Entities = []
         self.bpEntities = []
         self.sim_tick = 0
+        self.opened_windows = {}
         self.networks = {'red': [], 'green': []}
         self.create_entities()
         for c in ('red', 'green'):
             self.create_networks(c)
         self.normalize_coordinates()
-        self.scale_coordinates(80)
+        self.scale_coordinates(scale)
         self.draw()
 
 
@@ -886,30 +887,82 @@ class Factsimcmd():
                 current_tick_entry.insert(0, str(self.sim_tick))
             update_simulation()
 
+        def on_close(entity):
+            logging.debug("trying to destroy {} for {}".format(self.opened_windows.get(entity), entity))
+            self.opened_windows.get(entity).destroy()
+            del self.opened_windows[entity]
+
         def show_entity_info(entity):
             """Open a window and show the relevant information"""
             info_window = tk.Toplevel(root)
             info_window.geometry('400x500')
-            info_window.title(ent.__str__())
+            info_window.title(str(entity))
+            info_window.entity = entity
+            info_window.protocol('WM_DELETE_WINDOW', partial(on_close, info_window.entity))
             output = entity.outputs[self.sim_tick]
             if isinstance(entity, ElectricPole):
-                text = tk.Label(info_window, text="{}\nTick nr. {}\nSignals passing:\n".format(entity, self.sim_tick) +
-                                                  'Red:\n' + '\n'.join([str(i) for i in output['red']]) +
-                                                  '\nGreen:\n' + '\n'.join([str(i) for i in output['green']]), justify=tk.LEFT)
+                text = tk.Label(info_window, text="{}\nTick nr. {}\n\nSignals passing:\n".format(entity, self.sim_tick) +
+                                                  '\nRed:\n' + '\n'.join([str(i) for i in output['red']]) +
+                                                  '\n\nGreen:\n' + '\n'.join([str(i) for i in output['green']]), justify=tk.LEFT)
 
             elif isinstance(entity, Lamp):
-                text = tk.Label(info_window, text="{}\nTick nr. {}\nLight status: {}\nColour: {}".format(entity,
-                                self.sim_tick, output['light'], output['color']))
+                firstcond = entity.first_signal['name']
+                secondcond = entity.comparator
+                if entity.second_signal:
+                    thirdcond = entity.second_signal.get('name')
+                else:
+                    thirdcond = entity.constant
+
+                text = tk.Label(info_window, text="{}\nTick nr. {}\n\nConditions: {} {} {}\n\nLight status: {}\nColour: {}".format(entity,
+                                self.sim_tick, firstcond, secondcond, thirdcond, output['light'], output['color']))
 
 
             else:
-                text = tk.Label(info_window, text="{}\nTick nr. {}\nOutput signals:\n".format(entity, self.sim_tick) +
+                inp = entity.inputs[self.sim_tick]
+                if isinstance(entity, Decider):
+                    firstcond = entity.first_signal['name']
+                    secondcond = entity.comparator
+                    if entity.second_signal:
+                        thirdcond = entity.second_signal.get('name')
+                    else:
+                        thirdcond = entity.constant
+                    outputcond = entity.output_signal.get('name')
+                elif isinstance(entity, Arithmetic):
+                    firstcond = entity.first_signal['name']
+                    secondcond = entity.operation
+                    if entity.second_signal:
+                        thirdcond = entity.second_signal.get('name')
+                    else:
+                        thirdcond = entity.second_constant
+                    outputcond = entity.output_signal.get('name')
+                else:
+                    firstcond = "n/a"
+                    secondcond = "n/a"
+                    thirdcond = "n/a"
+                    outputcond = "n/a"
+
+                text = tk.Label(info_window, text="{}\nTick nr. {}\n".format(entity, self.sim_tick) +
+                                                  "\nConditions:     {} {} {}  --->  {}\n".format(firstcond, secondcond,
+                                                                                                  thirdcond, outputcond) +
+                                                  "\nInput signals:\n" +
+                                                  '\n'.join([str(i) for i in inp]) +
+                                                  "\n\nOutput signals:\n" +
                                                   '\n'.join([str(i) for i in output]), justify=tk.LEFT)
             text.pack()
+            if entity not in self.opened_windows:
+                logging.debug("adding the window {} to the list of opened windows with {} as key.".format(info_window, entity))
+                self.opened_windows[entity] = info_window
+            else:
+                self.opened_windows[entity].destroy()
+                self.opened_windows[entity] = info_window
 
         def update_simulation():
-            for ent in self.Entities:
-                ent.get_output(int(current_tick_entry.get()))
+            for up_ent in self.Entities:
+                up_ent.get_output(int(current_tick_entry.get()))
+            for enti, info_window in self.opened_windows.items():
+                logging.debug("recreating window {} for {}".format(info_window, enti))
+                show_entity_info(enti)
+
 
         fwd_button = tk.Button(root, text='+1 tick', command=fwd_button_fn)
         fwd_button.grid(row=2, column=2, sticky='e')
@@ -945,4 +998,6 @@ class Factsimcmd():
 #f.get_entity(5).get_output(10)
 
 if __name__ == "__main__":
+
     f = Factsimcmd()
+    #f = Factsimcmd(loglevel=logging.DEBUG)
