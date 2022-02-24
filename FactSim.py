@@ -36,9 +36,10 @@ from functools import partial
 
 VERSION = '0.0'
 
-ORDER = ["signal-{}".format(n) for n in range(10)] + ["signal-{}".format(chr(n)) for n in range(65,91)] +\
+ORDER = ["signal-{}".format(n) for n in range(10)] + ["signal-{}".format(chr(n)) for n in range(65, 91)] +\
         ["signal-red", "signal-green", "signal-blue", "signal-yellow", "signal-pink", "signal-cyan", "signal-white",
          "signal-grey", "signal-black", "signal-check", "signal-info", "signal-dot"]
+
 
 def sig_sort(signal):
     """Helper function to order the signals"""
@@ -87,6 +88,7 @@ class Signal():
             return True
         else:
             return False
+
 
 class Network():
     """abstraction for the connections"""
