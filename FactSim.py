@@ -925,6 +925,7 @@ class Factsimcmd():
                         thirdcond = entity.second_signal.get('name')
                     else:
                         thirdcond = entity.constant
+                    outputcond = entity.output_signal.get('name')
                 elif isinstance(entity, Arithmetic):
                     firstcond = entity.first_signal['name']
                     secondcond = entity.operation
@@ -932,13 +933,16 @@ class Factsimcmd():
                         thirdcond = entity.second_signal.get('name')
                     else:
                         thirdcond = entity.second_constant
+                    outputcond = entity.output_signal.get('name')
                 else:
                     firstcond = "n/a"
                     secondcond = "n/a"
                     thirdcond = "n/a"
+                    outputcond = "n/a"
 
                 text = tk.Label(info_window, text="{}\nTick nr. {}\n".format(entity, self.sim_tick) +
-                                                  "\nConditions: {} {} {}\n".format(firstcond, secondcond, thirdcond) +
+                                                  "\nConditions:     {} {} {}  --->  {}\n".format(firstcond, secondcond,
+                                                                                                  thirdcond, outputcond) +
                                                   "\nInput signals:\n" +
                                                   '\n'.join([str(i) for i in inp]) +
                                                   "\n\nOutput signals:\n" +
