@@ -33,6 +33,7 @@ import time
 from itertools import count
 import logging
 from functools import partial
+from ctypes import c_int32
 
 VERSION = '0.0'
 
@@ -47,6 +48,11 @@ def sig_sort(signal):
         ORDER.append(signal)
     return ORDER.index(signal)
 
+def int32(val):
+    """Emulate the 32bit integer limitation in Factorio"""
+    if -2 ** 31 <= val < 2 ** 31:
+        return val
+    return c_int32(val).value
 
 def open_blueprint(filename=None):
     """Open a blueprint by filename or prompting the user for one.
@@ -303,6 +309,7 @@ class Lamp(ConnectedEntity):
             if isinstance(i, Signal):
                 if i.name in input_count:
                     input_count[i.name] += i.count
+                    input_count[i.name] = int32(input_count[i.name])
                 else:
                     input_count[i.name] = i.count
 
@@ -414,6 +421,7 @@ class Decider(Combinator):
             if isinstance(i, Signal):
                 if i.name in input_count:
                     input_count[i.name] += i.count
+                    input_count[i.name] = int32(input_count[i.name])
                 else:
                     input_count[i.name] = i.count
                 if input_count[i.name] == 0:
@@ -521,6 +529,7 @@ class Decider(Combinator):
                     result = eval(condition)
                     if result:
                         count += c
+                        count = int32(count)
                 name = self.output_signal.get('name')
                 if count != 0:
                     self.outputs[self.tick] += [Signal({'signal': {'name': name, 'type': 'virtual'}, 'count': count})]
@@ -575,6 +584,7 @@ class Arithmetic(Combinator):
             if isinstance(i, Signal):
                 if i.name in input_count:
                     input_count[i.name] += i.count
+                    input_count[i.name] = int32(input_count[i.name])
                 else:
                     input_count[i.name] = i.count
                 if input_count[i.name] == 0:
@@ -602,6 +612,7 @@ class Arithmetic(Combinator):
                     operation = str(c) + self.operation + str(second_term)
                     result = int(eval(operation))
                     if result != 0:
+                        result = int32(result)
                         name = inp
                         self.outputs[self.tick] += [Signal({'signal': {'name': name, 'type': 'virtual'},
                                                             'count': result})]
@@ -612,7 +623,9 @@ class Arithmetic(Combinator):
                 for inp, c in input_count.items():
                     operation = str(c) + self.operation + str(second_term)
                     result = int(eval(operation))
+                    result = int32(result)
                     total += result
+                    total = int32(total)
 
                 if total != 0:
                     self.outputs[self.tick] += [Signal({'signal': {'name': name, 'type': 'virtual'},
@@ -623,6 +636,7 @@ class Arithmetic(Combinator):
             operation = str(first_term) + self.operation + str(second_term)
             result = eval(operation)
             if result != 0:
+                result = int32(result)
                 name = self.output_signal.get('name')
                 self.outputs[self.tick] += [Signal({'signal': {'name': name, 'type': 'virtual'},
                                                     'count': result})]
@@ -898,6 +912,7 @@ class Factsimcmd():
             info_window.geometry('400x500')
             info_window.title(str(entity))
             info_window.entity = entity
+            # handle window closing
             info_window.protocol('WM_DELETE_WINDOW', partial(on_close, info_window.entity))
             output = entity.outputs[self.sim_tick]
             if isinstance(entity, ElectricPole):
@@ -916,6 +931,10 @@ class Factsimcmd():
                 text = tk.Label(info_window, text="{}\nTick nr. {}\n\nConditions: {} {} {}\n\nLight status: {}\nColour: {}".format(entity,
                                 self.sim_tick, firstcond, secondcond, thirdcond, output['light'], output['color']))
 
+            elif isinstance(entity, Constant_Combinator):
+                text = tk.Label(info_window, text="{}\nTick nr. {}\n".format(entity, self.sim_tick) +
+                                                  "\n\nOutput signals:\n" +
+                                                  '\n'.join([str(i) for i in output]), justify=tk.LEFT)
 
             else:
                 inp = entity.inputs[self.sim_tick]
