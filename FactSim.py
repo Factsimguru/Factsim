@@ -1006,7 +1006,17 @@ class Factsimcmd():
         for ent in self.Entities:
             x = ent.position['x']
             y = ent.position['y']
-            button = tk.Button(display, text=ent.label(), bg='gold', command=partial(show_entity_info, ent))
+            if isinstance(ent, Decider):
+                color = 'gold'
+            elif isinstance(ent, Arithmetic):
+                color = '#03ABFE'
+            elif isinstance(ent, Constant_Combinator):
+                color = '#F86658'
+            elif isinstance(ent, ElectricPole):
+                color = '#A9A8AD'
+            else:
+                color = '#4FE942'
+            button = tk.Button(display, text=ent.label(), bg=color, command=partial(show_entity_info, ent))
             display.create_window(x, y, window=button)
 
         fwd_button_fn()
