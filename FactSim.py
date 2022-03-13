@@ -241,12 +241,18 @@ class Constant_Combinator(ConnectedEntity):
     def __init__(self, dictionary, simulation):
         super().__init__(dictionary, simulation)
         self.c_behavior = dictionary.get('control_behavior').get('filters')
+        self.is_on = dictionary.get('control_behavior').get('is_on', True)
         self.connectOUT = self.connect1
-        self.outputs = [[Signal(con) for con in self.c_behavior]]
-
+        if self.is_on:
+            self.outputs = [[Signal(con) for con in self.c_behavior]]
+        else:
+            self.outputs = [[]]
     def advance(self):
         self.tick += 1
-        self.outputs += [[Signal(con) for con in self.c_behavior]]
+        if self.is_on:
+            self.outputs += [[Signal(con) for con in self.c_behavior]]
+        else:
+            self.outputs += [[]]
 
 
 class Pushbutton(Constant_Combinator):
@@ -611,7 +617,10 @@ class Arithmetic(Combinator):
             if self.output_signal.get('name') == 'signal-each':
                 for inp, c in input_count.items():
                     operation = str(c) + self.operation + str(second_term)
-                    result = int(eval(operation))
+                    if self.operation == '/' and c == 0:
+                        result = 0
+                    else:
+                        result = int(eval(operation))
                     if result != 0:
                         result = int32(result)
                         name = inp
@@ -623,7 +632,10 @@ class Arithmetic(Combinator):
                 total = 0
                 for inp, c in input_count.items():
                     operation = str(c) + self.operation + str(second_term)
-                    result = int(eval(operation))
+                    if self.operation == '/' and c == 0:
+                        result = 0
+                    else:
+                        result = int(eval(operation))
                     result = int32(result)
                     total += result
                     total = int32(total)
@@ -634,6 +646,8 @@ class Arithmetic(Combinator):
 
         else:
             first_term = input_count.get(self.first_signal.get('name'), 0)
+            if self.operation == '/' and first_term == 0:
+                return
             operation = str(first_term) + self.operation + str(second_term)
             result = eval(operation)
             if result != 0:
