@@ -48,11 +48,13 @@ def sig_sort(signal):
         ORDER.append(signal)
     return ORDER.index(signal)
 
+
 def int32(val):
     """Emulate the 32bit integer limitation in Factorio"""
     if -2 ** 31 <= val < 2 ** 31:
         return val
     return c_int32(val).value
+
 
 def open_blueprint(filename=None):
     """Open a blueprint by filename or prompting the user for one.
@@ -151,8 +153,6 @@ class Entity():
         return 'Entity nr {:0>3d} \n {}'.format(self.entity_N,  self.name)
 
 
-
-
 class ConnectedEntity(Entity):
     """Any entity that can have connections"""
 
@@ -173,7 +173,8 @@ class ConnectedEntity(Entity):
 
     def advance(self):
         """Method to generate the output in the current tick with the inputs from the previous one."""
-        print("WARNING!!!: entity {} is not implemented in the simulation".format(self))  # It it is not overriden
+        print("WARNING!!!: entity {} is not implemented in the simulation".format(
+            self))  # It it is not overriden
         self.outputs += [[]]
 
     def get_output(self, tick):
@@ -894,7 +895,7 @@ class Factsimcmd():
             update_simulation()
 
         def update_tick_fn(event):
-            if current_tick_entry.get().isdigit():
+            if current_tick_entry.get().isdigit() and int(current_tick_entry.get()) > 0:
                 self.sim_tick = int(current_tick_entry.get())
             else:
                 current_tick_entry.delete(0, len(current_tick_entry.get()))
@@ -1029,4 +1030,4 @@ class Factsimcmd():
 if __name__ == "__main__":
 
     f = Factsimcmd()
-    #f = Factsimcmd(loglevel=logging.DEBUG)
+    # f = Factsimcmd(loglevel=logging.DEBUG, scale=120)
