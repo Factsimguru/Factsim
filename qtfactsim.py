@@ -64,14 +64,18 @@ DEFAULT_PINS = {
             'input_green': (0, 35, 15, 15, 'input_green', True, 'green'),
             'output_green': (90, 35, 15, 15, 'output_green', False, 'green'),
         }
+OUT_PINS = {
+            'output_red': (40, 20, 15, 15, 'output_red', False, 'red'),
+            'output_green': (40, 35, 15, 15, 'output_green', False, 'green')
+        }
     
 # Custom Node Class
 class Node(QGraphicsItem):
     node_counter = 0  # Class variable to count node instances
 
-    def __init__(self, name, node_type, color=QColor(100, 100, 255), pins=DEFAULT_PINS):
+    def __init__(self, node_type, color=QColor(100, 100, 255), pins=DEFAULT_PINS, rect = QRectF(0, 0, 100, 50)):
         super().__init__()
-        self.rect = QRectF(0, 0, 100, 50)  # Define the rectangle for the node
+        self.rect = rect  # Define the rectangle for the node
         self.node_type = node_type
         self.color = color  # Initialize the color attribute
         Node.node_counter += 1
@@ -109,6 +113,21 @@ class Node(QGraphicsItem):
 
 
 
+
+
+class Decider(Node):
+    def __init__(self, node_type, color=QColor(100, 100, 255), pins=DEFAULT_PINS):
+        super().__init__(node_type, color=QColor(100, 100, 255), pins=DEFAULT_PINS)
+        
+
+
+class Arithmetic(Node):
+    def __init__(self, node_type, color=QColor(107, 179, 0), pins=DEFAULT_PINS):
+        super().__init__(node_type, color=QColor(107, 179, 0), pins=DEFAULT_PINS)
+
+class Constant(Node):
+    def __init__(self, node_type, color=QColor(180,27,0), pins=OUT_PINS, rect=QRectF(0,0,50, 50)):
+        super().__init__(node_type, color=color, pins=OUT_PINS, rect=rect)
 
 
 # Custom Connection Class (to connect pins)
@@ -276,8 +295,19 @@ class FactsimScene(QGraphicsScene):
             conn.update_path()
 
     # Method to create and place a node at a specific position
-    def create_node(self, name, node_type, color, position):
-        node = Node(name, node_type, color)
+    def create_node(self, node_type, position):
+        if node_type == "Decider":
+            color = QColor(150, 200, 150)
+            node = Decider(node_type, color)
+        elif node_type == "Arithmetic":
+            color = QColor(107, 179, 0)
+            node = Arithmetic(node_type, color)
+        elif node_type == "Constant":
+            color = QColor(180, 27, 0)
+            node = Constant(node_type, color)
+        else:
+            color = QColor(150, 200, 150)
+            node = Node(node_type, color)
         node.setPos(position)
         self.addItem(node)
         return node
@@ -415,10 +445,16 @@ class MainWindow(QMainWindow):
         toolbar = QToolBar("Tools", self)
         self.addToolBar(Qt.LeftToolBarArea, toolbar)
 
-        # Action to add a node
-        add_node_action = QAction("Add Node", self)
-        add_node_action.triggered.connect(self.add_node)
-        toolbar.addAction(add_node_action)
+        # Create actions for different node types
+        node_types = ["Decider", "Arithmetic", "Constant"]
+           
+        # Create buttons for each node type
+        for node_type in node_types:
+            action = QAction(node_type, self)
+            # Use a lambda to pass the node_type to add_node
+            action.triggered.connect(lambda checked, nt=node_type: self.add_node(nt))
+            toolbar.addAction(action)
+
 
     def create_tick_edit(self, toolbar):
         # Entry to edit and display the global tick
@@ -464,14 +500,11 @@ class MainWindow(QMainWindow):
         # Update the tick display in the toolbar
         self.tick_edit.setText(f"Tick: {self.global_tick}")
 
-    def add_node(self):
+    def add_node(self, node_type):
         # Call the create_node method from FactsimScene
-        node_name = f"Node {self.node_counter}"
-        node_type = "Type A"
-        node_color = QColor(150, 200, 150)
-        position = QPointF(100 + (self.node_counter * 20), 100 + (self.node_counter * 20))
+        position = QPointF(100, 100)
 
-        self.view.scene().create_node(node_name, node_type, node_color, position)
+        self.view.scene().create_node(node_type, position)
         self.node_counter += 1
 
 
