@@ -38,7 +38,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 #Custom Pin class
 class Pin(QGraphicsEllipseItem):
-    def __init__(self, x, y, width, height, parent, pin_name, is_input, color):
+    def __init__(self, parent, x, y, width, height, pin_name, is_input, color):
         super().__init__(x, y, width, height, parent)
         self.pin_name = pin_name
         self.owningNode = parent
@@ -57,39 +57,46 @@ class Pin(QGraphicsEllipseItem):
         return rect.adjusted(-2, -2, 2, 2)
 
 
-
+# Pins (4 pins: 2 inputs, 2 outputs) for the generic Node class
+DEFAULT_PINS = {
+            'input_red': (0, 20, 15, 15, 'input_red', True, 'red'),
+            'output_red': (90, 20, 15, 15, 'output_red', False, 'red'),
+            'input_green': (0, 35, 15, 15, 'input_green', True, 'green'),
+            'output_green': (90, 35, 15, 15, 'output_green', False, 'green'),
+        }
+    
 # Custom Node Class
 class Node(QGraphicsItem):
     node_counter = 0  # Class variable to count node instances
 
-    def __init__(self, name, node_type, color=QColor(100, 100, 255)):
+    def __init__(self, name, node_type, color=QColor(100, 100, 255), pins=DEFAULT_PINS):
         super().__init__()
         self.rect = QRectF(0, 0, 100, 50)  # Define the rectangle for the node
         self.node_type = node_type
         self.color = color  # Initialize the color attribute
         Node.node_counter += 1
         self.node_id = Node.node_counter  # Unique ID for each node
-        self.name = name
+        self.name = self.node_type + "  " +str(self.node_id)
 
-        # Pins (4 pins: 2 inputs, 2 outputs) with the custom Pin class
-        self.pins = {
-            'input_red': Pin(0, 20, 15, 15, self, 'input_red', True, 'red'),
-            'output_red': Pin(90, 20, 15, 15, self, 'output_red', False, 'red'),
-            'input_green': Pin(0, 35, 15, 15, self, 'input_green', True, 'green'),
-            'output_green': Pin(90, 35, 15, 15, self, 'output_green', False, 'green'),
-        }
+        self.pins = {}
+        self.create_pins(pins)
 
         self.setFlag(QGraphicsItem.ItemIsMovable)
         self.setFlag(QGraphicsItem.ItemSendsGeometryChanges)
 
+    def create_pins(self, pins_dict):
+        for key, value in pins_dict.items():
+            updated_value = (self,) + value
+            self.pins[key] = Pin(*updated_value)
 
+            
     def boundingRect(self):
         return self.rect
 
     def paint(self, painter, option, widget):
         painter.setBrush(QBrush(self.color))
         painter.drawRect(self.rect)
-        painter.drawText(self.rect, Qt.AlignCenter, f"{self.name} ({self.node_id})\n{self.node_type}")
+        painter.drawText(self.rect, Qt.AlignCenter, f"{self.name}")
 
     # When the node is moved, inform the connections to update their positions
     def itemChange(self, change, value):
@@ -104,7 +111,7 @@ class Node(QGraphicsItem):
 
 
 
-# Custom Connection Class (to connect pins, not nodes)
+# Custom Connection Class (to connect pins)
 class Connection(QGraphicsPathItem):
     def __init__(self, start_pin, end_pin, color):
         super().__init__()
