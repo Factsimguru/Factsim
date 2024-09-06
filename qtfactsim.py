@@ -80,10 +80,12 @@ class Node(QGraphicsItem):
         self.color = color  # Initialize the color attribute
         Node.node_counter += 1
         self.node_id = Node.node_counter  # Unique ID for each node
-        self.name = self.node_type + "  " +str(self.node_id)
+        self.name = "Node" + "  " +str(self.node_id)
 
         self.pins = {}
         self.create_pins(pins)
+        self.local_tick = 0
+        self.active = True
 
         self.setFlag(QGraphicsItem.ItemIsMovable)
         self.setFlag(QGraphicsItem.ItemSendsGeometryChanges)
@@ -109,6 +111,10 @@ class Node(QGraphicsItem):
             if isinstance(scene, FactsimScene):
                 scene.update_connections()
         return super().itemChange(change, value)
+    def compute(self):
+        if self.active:
+            self.local_tick += 1
+            
 
 
 
@@ -116,19 +122,27 @@ class Node(QGraphicsItem):
 
 
 class Decider(Node):
+    decider_counter = 0
     def __init__(self, node_type, color=QColor(100, 100, 255), pins=DEFAULT_PINS):
         super().__init__(node_type, color=QColor(100, 100, 255), pins=DEFAULT_PINS)
+        Decider.decider_counter += 1
+        self.name = self.node_type + "  " +str(self.decider_counter)
         
 
 
 class Arithmetic(Node):
+    arithmetic_counter = 0
     def __init__(self, node_type, color=QColor(107, 179, 0), pins=DEFAULT_PINS):
         super().__init__(node_type, color=QColor(107, 179, 0), pins=DEFAULT_PINS)
+        Arithmetic.arithmetic_counter += 1
+        self.name = self.node_type + "  " +str(self.arithmetic_counter)
 
 class Constant(Node):
+    constant_counter = 0
     def __init__(self, node_type, color=QColor(180,27,0), pins=OUT_PINS, rect=QRectF(0,0,50, 50)):
         super().__init__(node_type, color=color, pins=OUT_PINS, rect=rect)
-
+        Constant.constant_counter += 1
+        self.name = self.node_type + "  " +str(self.constant_counter)
 
 # Custom Connection Class (to connect pins)
 class Connection(QGraphicsPathItem):
