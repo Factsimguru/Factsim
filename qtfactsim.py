@@ -27,10 +27,10 @@
 import sys
 import logging
 from PySide6.QtCore import Qt, QRectF, QPointF, QLineF
-from PySide6.QtGui import QPainter, QPen, QBrush, QColor, QAction, QTransform, QPainterPath
+from PySide6.QtGui import QPainter, QPen, QBrush, QColor, QAction, QTransform, QPainterPath, QFontMetricsF
 from PySide6.QtWidgets import (
     QGraphicsScene, QGraphicsView, QGraphicsItem, QApplication, 
-    QGraphicsEllipseItem, QGraphicsLineItem, QMainWindow, QToolBar, QGraphicsPathItem
+    QGraphicsEllipseItem, QGraphicsLineItem, QMainWindow, QToolBar, QGraphicsPathItem, QComboBox, QGraphicsProxyWidget
 )
 
 # Setup logging (optional logging)
@@ -73,7 +73,7 @@ OUT_PINS = {
 class Node(QGraphicsItem):
     node_counter = 0  # Class variable to count node instances
 
-    def __init__(self, node_type, color=QColor(100, 100, 255), pins=DEFAULT_PINS, rect = QRectF(0, 0, 100, 50)):
+    def __init__(self, node_type, color=QColor(100, 100, 255), pins=DEFAULT_PINS, rect = QRectF(0, 0, 110, 50)):
         super().__init__()
         self.rect = rect  # Define the rectangle for the node
         self.node_type = node_type
@@ -89,20 +89,66 @@ class Node(QGraphicsItem):
 
         self.setFlag(QGraphicsItem.ItemIsMovable)
         self.setFlag(QGraphicsItem.ItemSendsGeometryChanges)
+        
+        
+        self.create_options_combobox()
+
+    def create_options_combobox(self):
+        # Create combobox for configuration
+        self.combo_box = QComboBox()
+        self.combo_box.addItems(["Option 1", "Option 2", "Option 3"])
+        self.combo_box.currentIndexChanged.connect(self.combo_changed)
+        self.combo_box.setFixedWidth(40)
+
+        # Use a QGraphicsProxyWidget to embed the combo box inside the scene
+        self.proxy_widget = QGraphicsProxyWidget(self)
+        self.proxy_widget.setWidget(self.combo_box)
+        self.proxy_widget.setPos(20,25)  # Adjust this position based on where you want the combobox inside the node
+        
 
     def create_pins(self, pins_dict):
         for key, value in pins_dict.items():
             updated_value = (self,) + value
             self.pins[key] = Pin(*updated_value)
 
+    def combo_changed(self, index):
+        # Handle combo box change
+        selected_option = self.combo_box.currentText()
+        logging.info(f"Node {self.node_id} - ComboBox changed to {selected_option}")
+
             
     def boundingRect(self):
-        return self.rect
+        return self.rect.adjusted(0, 0, 0, 30)
 
     def paint(self, painter, option, widget):
         painter.setBrush(QBrush(self.color))
         painter.drawRect(self.rect)
-        painter.drawText(self.rect, Qt.AlignCenter, f"{self.name}")
+        textrect = self.rect.adjusted(20,0,-20,-20)
+
+        # Set a default font
+        font = painter.font()
+        painter.setFont(font)
+
+        # Measure text size with the default font
+        metrics = QFontMetricsF(painter.font())
+        text = f"{self.name}"
+
+        rect_width = textrect.width()
+
+        # Calculate the text dimensions with default font
+        text_width = metrics.horizontalAdvance(text)
+
+        # Estimate a scaling factor based on the rectangle size
+        width_ratio = rect_width / text_width
+        scaling_factor = width_ratio
+
+        # Set the new font size based on the scaling factor
+        font_size = int(font.pointSize() * scaling_factor)
+        font.setPointSize(max(1, font_size))  # Ensure font size is at least 1
+        painter.setFont(font)
+
+        
+        painter.drawText(textrect, Qt.AlignCenter, f"{self.name}")
 
     # When the node is moved, inform the connections to update their positions
     def itemChange(self, change, value):
@@ -126,7 +172,7 @@ class Decider(Node):
     def __init__(self, node_type, color=QColor(100, 100, 255), pins=DEFAULT_PINS):
         super().__init__(node_type, color=QColor(100, 100, 255), pins=DEFAULT_PINS)
         Decider.decider_counter += 1
-        self.name = self.node_type + "  " +str(self.decider_counter)
+        self.name = "DEC" + " " +str(self.decider_counter)
         
 
 
@@ -135,14 +181,16 @@ class Arithmetic(Node):
     def __init__(self, node_type, color=QColor(107, 179, 0), pins=DEFAULT_PINS):
         super().__init__(node_type, color=QColor(107, 179, 0), pins=DEFAULT_PINS)
         Arithmetic.arithmetic_counter += 1
-        self.name = self.node_type + "  " +str(self.arithmetic_counter)
+        self.name = "ART" + " " +str(self.arithmetic_counter)
 
 class Constant(Node):
     constant_counter = 0
     def __init__(self, node_type, color=QColor(180,27,0), pins=OUT_PINS, rect=QRectF(0,0,50, 50)):
         super().__init__(node_type, color=color, pins=OUT_PINS, rect=rect)
         Constant.constant_counter += 1
-        self.name = self.node_type + "  " +str(self.constant_counter)
+        self.name = "C" + "  " +str(self.constant_counter)
+    def create_options_combobox(self):
+        pass
 
 # Custom Connection Class (to connect pins)
 class Connection(QGraphicsPathItem):
