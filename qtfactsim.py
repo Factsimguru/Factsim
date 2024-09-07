@@ -26,7 +26,7 @@
 
 import sys
 import logging
-from PySide6.QtCore import Qt, QRectF, QPointF, QLineF
+from PySide6.QtCore import Qt, QRectF, QPointF, QLineF, Signal
 from PySide6.QtGui import QPainter, QPen, QBrush, QColor, QAction, QTransform, QPainterPath, QFontMetricsF
 from PySide6.QtWidgets import (
     QGraphicsScene, QGraphicsView, QGraphicsItem, QApplication, 
@@ -98,12 +98,12 @@ class Node(QGraphicsItem):
         self.combo_box = QComboBox()
         self.combo_box.addItems(["Option 1", "Option 2", "Option 3"])
         self.combo_box.currentIndexChanged.connect(self.combo_changed)
-        self.combo_box.setFixedWidth(40)
+        self.combo_box.setFixedWidth(50)
 
         # Use a QGraphicsProxyWidget to embed the combo box inside the scene
         self.proxy_widget = QGraphicsProxyWidget(self)
         self.proxy_widget.setWidget(self.combo_box)
-        self.proxy_widget.setPos(20,25)  # Adjust this position based on where you want the combobox inside the node
+        self.proxy_widget.setPos(25,25)  # Adjust this position based on where you want the combobox inside the node
         
 
     def create_pins(self, pins_dict):
@@ -123,28 +123,11 @@ class Node(QGraphicsItem):
     def paint(self, painter, option, widget):
         painter.setBrush(QBrush(self.color))
         painter.drawRect(self.rect)
-        textrect = self.rect.adjusted(20,0,-20,-20)
+        textrect = self.rect.adjusted(5,0,-5,-20)
 
         # Set a default font
         font = painter.font()
-        painter.setFont(font)
-
-        # Measure text size with the default font
-        metrics = QFontMetricsF(painter.font())
-        text = f"{self.name}"
-
-        rect_width = textrect.width()
-
-        # Calculate the text dimensions with default font
-        text_width = metrics.horizontalAdvance(text)
-
-        # Estimate a scaling factor based on the rectangle size
-        width_ratio = rect_width / text_width
-        scaling_factor = width_ratio
-
-        # Set the new font size based on the scaling factor
-        font_size = int(font.pointSize() * scaling_factor)
-        font.setPointSize(max(1, font_size))  # Ensure font size is at least 1
+        font.setPointSize(12)  
         painter.setFont(font)
 
         
@@ -160,6 +143,8 @@ class Node(QGraphicsItem):
     def compute(self):
         if self.active:
             self.local_tick += 1
+    def handle_global_tick(self, tick):
+        logging.info(f"Node {self.node_id} received global tick: {tick}")
             
 
 
@@ -433,6 +418,12 @@ class FactsimScene(QGraphicsScene):
         else:
             logging.warning(f"Connection between {self.get_pin_name(start_pin)} and {self.get_pin_name(end_pin)} not found.")
 
+    def update_global_tick(self, tick):
+        # Method to handle the global tick update
+        logging.info(f"Updating nodes with new global tick: {tick}")
+        for item in self.items():
+            if isinstance(item, Node):
+                item.handle_global_tick(tick)
 
 
 
@@ -449,6 +440,8 @@ class FactsimView(QGraphicsView):
 
 # Main Window with Toolbar for adding nodes
 class MainWindow(QMainWindow):
+    global_tick_changed = Signal(int)
+    
     def __init__(self):
         super().__init__()
 
@@ -456,6 +449,9 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.view)
         # Initialize a global tick
         self.global_tick = 0
+
+        # Connect the signal to a slot in FactsimScene
+        self.global_tick_changed.connect(self.view.scene().update_global_tick)
 
         # Create toolbars
         self.create_top_toolbar()
@@ -538,17 +534,20 @@ class MainWindow(QMainWindow):
         self.global_tick = 0
         self.update_tick_display()
         logging.info("Simulation reset to start")
+        self.global_tick_changed.emit(self.global_tick)
 
     def simulation_back(self):
         if self.global_tick > 0:
             self.global_tick -= 1
             self.update_tick_display()
         logging.info(f"Simulation moved back to tick {self.global_tick}")
+        self.global_tick_changed.emit(self.global_tick)
 
     def simulation_forward(self):
         self.global_tick += 1
         self.update_tick_display()
         logging.info(f"Simulation advanced to tick {self.global_tick}")
+        self.global_tick_changed.emit(self.global_tick)
 
     def simulation_play(self):
         # Implement play functionality (simulation loop, left as an exercise)
