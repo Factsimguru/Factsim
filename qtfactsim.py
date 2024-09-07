@@ -30,11 +30,55 @@ from PySide6.QtCore import Qt, QRectF, QPointF, QLineF, Signal
 from PySide6.QtGui import QPainter, QPen, QBrush, QColor, QAction, QTransform, QPainterPath, QFontMetricsF
 from PySide6.QtWidgets import (
     QGraphicsScene, QGraphicsView, QGraphicsItem, QApplication, 
-    QGraphicsEllipseItem, QGraphicsLineItem, QMainWindow, QToolBar, QGraphicsPathItem, QComboBox, QGraphicsProxyWidget
+    QGraphicsEllipseItem, QGraphicsLineItem, QMainWindow, QToolBar, QGraphicsPathItem, QComboBox, QGraphicsProxyWidget, QDialog, QTabWidget, QVBoxLayout, QWidget, QLabel
 )
 
 # Setup logging (optional logging)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+
+class NodeDetailsWindow(QDialog):
+    def __init__(self, node):
+        super().__init__()
+        self.node = node
+        self.setWindowTitle(f"{node.name} Details - {node.node_id}")
+        self.setGeometry(100, 100, 400, 300)
+
+        # Create a QTabWidget
+        self.tab_widget = QTabWidget()
+        self.layout = QVBoxLayout(self)
+        self.layout.addWidget(self.tab_widget)
+
+        # Create tabs
+        self.config_tab = QWidget()
+        self.results_tab = QWidget()
+
+        # Add tabs to the QTabWidget
+        self.tab_widget.addTab(self.config_tab, "Configuration")
+        self.tab_widget.addTab(self.results_tab, "Results")
+
+        # Populate Configuration Tab
+        self.setup_config_tab()
+
+        # Populate Results Tab
+        self.setup_results_tab()
+
+    def setup_config_tab(self):
+        # Layout and widgets for the Configuration tab
+        layout = QVBoxLayout()
+        label = QLabel(f"Configure {self.node.name}")
+        layout.addWidget(label)
+        # Add more configuration widgets as needed, e.g., sliders, checkboxes
+        self.config_tab.setLayout(layout)
+
+    def setup_results_tab(self):
+        # Layout and widgets for the Results tab
+        layout = QVBoxLayout()
+        label = QLabel(f"Results for {self.node.name}")
+        layout.addWidget(label)
+        # Add more result display widgets as needed, e.g., text areas, plots
+        self.results_tab.setLayout(layout)
+
 
 #Custom Pin class
 class Pin(QGraphicsEllipseItem):
@@ -337,6 +381,18 @@ class FactsimScene(QGraphicsScene):
 
         super().mouseReleaseEvent(event)
 
+    def mouseDoubleClickEvent(self, event):
+        item = self.itemAt(event.scenePos(), QTransform())
+        if isinstance(item, Node):  # Assuming your nodes are represented by a `Node` class
+            self.open_node_details(item)
+        else:
+            super().mouseDoubleClickEvent(event)
+
+    def open_node_details(self, node):
+        # Create and show the NodeDetailsWindow
+        self.details_window = NodeDetailsWindow(node)
+        self.details_window.exec_()
+        
     def update_connections(self):
         for conn in self.connections_dict.values():
             conn.update_path()
