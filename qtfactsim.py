@@ -24,13 +24,13 @@
 #######################################################################
 
 
-import sys
+import sys, zlib, base64, json
 import logging
 from PySide6.QtCore import Qt, QRectF, QPointF, QLineF, Signal
 from PySide6.QtGui import QPainter, QPen, QBrush, QColor, QAction, QTransform, QPainterPath, QFontMetricsF
 from PySide6.QtWidgets import (
     QGraphicsScene, QGraphicsView, QGraphicsItem, QApplication, 
-    QGraphicsEllipseItem, QGraphicsLineItem, QMainWindow, QToolBar, QGraphicsPathItem, QComboBox, QGraphicsProxyWidget, QDialog, QTabWidget, QVBoxLayout, QWidget, QLabel
+    QGraphicsEllipseItem, QGraphicsLineItem, QMainWindow, QToolBar, QGraphicsPathItem, QComboBox, QGraphicsProxyWidget, QDialog, QTabWidget, QVBoxLayout, QWidget, QLabel, QFileDialog, QMessageBox
 )
 
 # Setup logging (optional logging)
@@ -41,7 +41,7 @@ class NodeDetailsWindow(QDialog):
     def __init__(self, node):
         super().__init__()
         self.node = node
-        self.setWindowTitle(f"{node.name} Details - {node.node_id}")
+        self.setWindowTitle(f"{node.name} Details")
         self.setGeometry(100, 100, 400, 300)
 
         # Create a QTabWidget
@@ -391,7 +391,7 @@ class FactsimScene(QGraphicsScene):
     def open_node_details(self, node):
         # Create and show the NodeDetailsWindow
         self.details_window = NodeDetailsWindow(node)
-        self.details_window.exec_()
+        self.details_window.exec()
         
     def update_connections(self):
         for conn in self.connections_dict.values():
@@ -579,9 +579,36 @@ class MainWindow(QMainWindow):
         return tick_edit
 
     def open_file(self):
-        # Implement functionality to open a file (left as an exercise)
+        # Implement functionality to open a file
         logging.info("Open file triggered")
+        # Open a file dialog to select the file
+        file_dialog = QFileDialog()
+        file_path, _ = file_dialog.getOpenFileName(self, "Open File", "", "Blueprint Files (*.bp);;All Files (*)")
 
+        if file_path:
+            try:
+                # Assuming you're opening a JSON file or some text-based format
+                with open(file_path, 'r') as file:
+                    #file_contents = file.read()
+                    # Process the file (you can parse the content here if needed)
+                    logging.info(f"Opened file: {file_path}")
+                    jsonstring64 = file.read()[1:]
+                    jsonstringdata = base64.b64decode(jsonstring64)
+                    jsonstring = zlib.decompress(jsonstringdata)
+                    print("jsonstring ", jsonstring)
+                    self.bpdict = json.loads(jsonstring)
+                    print("this: ", self.bpdict)
+            except Exception as e:
+                # Show an error message if the file could not be opened
+                error_msg = QMessageBox()
+                error_msg.setIcon(QMessageBox.Critical)
+                error_msg.setText(f"Failed to open the file: {e}")
+                error_msg.setWindowTitle("File Open Error")
+                error_msg.exec()
+        else:
+            logging.info("File selection canceled")
+
+        
     def save_as_file(self):
         # Implement functionality to save as a file (left as an exercise)
         logging.info("Save As file triggered")
