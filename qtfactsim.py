@@ -595,9 +595,11 @@ class MainWindow(QMainWindow):
                     jsonstring64 = file.read()[1:]
                     jsonstringdata = base64.b64decode(jsonstring64)
                     jsonstring = zlib.decompress(jsonstringdata)
-                    print("jsonstring ", jsonstring)
-                    self.bpdict = json.loads(jsonstring)
-                    print("this: ", self.bpdict)
+                    self.jsonstring = jsonstring
+                    self.bpdict = json.loads(jsonstring)['blueprint']
+                    for item in self.bpdict['entities']:
+                        print(f"{item}")
+                        
             except Exception as e:
                 # Show an error message if the file could not be opened
                 error_msg = QMessageBox()
@@ -610,7 +612,7 @@ class MainWindow(QMainWindow):
 
         
     def save_as_file(self):
-        # Implement functionality to save as a file (left as an exercise)
+        # Implement functionality to save as a file
         logging.info("Save As file triggered")
 
     def simulation_start(self):
