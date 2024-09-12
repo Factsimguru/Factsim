@@ -117,7 +117,7 @@ OUT_PINS = {
 class Node(QGraphicsItem):
     node_counter = 0  # Class variable to count node instances
 
-    def __init__(self, node_type, color=QColor(100, 100, 255), pins=DEFAULT_PINS, rect = QRectF(0, 0, 110, 50)):
+    def __init__(self, node_type, color=QColor(150, 200, 150), pos=QPointF(100,100) , pins=DEFAULT_PINS, rect = QRectF(0, 0, 110, 50), from_dict = False):
         super().__init__()
         self.rect = rect  # Define the rectangle for the node
         self.node_type = node_type
@@ -136,6 +136,7 @@ class Node(QGraphicsItem):
         
         
         self.create_options_combobox()
+        self.setPos(pos)
 
     def create_options_combobox(self):
         # Create combobox for configuration
@@ -193,13 +194,11 @@ class Node(QGraphicsItem):
 
 
 
-
-
-
 class Decider(Node):
     decider_counter = 0
-    def __init__(self, node_type, color=QColor(100, 100, 255), pins=DEFAULT_PINS):
-        super().__init__(node_type, color=QColor(100, 100, 255), pins=DEFAULT_PINS)
+    def __init__(self, node_type, color=QColor(100, 100, 255),pos=QPointF(100,100), pins=DEFAULT_PINS, from_dict=False):
+        super().__init__(node_type, color=color,pos=pos, pins=pins, from_dict=from_dict)
+        
         Decider.decider_counter += 1
         self.name = "DEC" + " " +str(self.decider_counter)
         
@@ -207,15 +206,15 @@ class Decider(Node):
 
 class Arithmetic(Node):
     arithmetic_counter = 0
-    def __init__(self, node_type, color=QColor(107, 179, 0), pins=DEFAULT_PINS):
-        super().__init__(node_type, color=QColor(107, 179, 0), pins=DEFAULT_PINS)
+    def __init__(self, node_type, color=QColor(107, 179, 0),pos=QPointF(100,100), pins=DEFAULT_PINS, from_dict=False):
+        super().__init__(node_type, color=color, pos=pos, pins=pins, from_dict=from_dict)
         Arithmetic.arithmetic_counter += 1
         self.name = "ART" + " " +str(self.arithmetic_counter)
 
 class Constant(Node):
     constant_counter = 0
-    def __init__(self, node_type, color=QColor(180,27,0), pins=OUT_PINS, rect=QRectF(0,0,50, 50)):
-        super().__init__(node_type, color=color, pins=OUT_PINS, rect=rect)
+    def __init__(self, node_type, color=QColor(180,27,0), pos=QPointF(100,100), pins=OUT_PINS, rect=QRectF(0,0,50, 50), from_dict=False):
+        super().__init__(node_type, color=color,pos=pos, pins=OUT_PINS, rect=rect, from_dict=from_dict)
         Constant.constant_counter += 1
         self.name = "C" + "  " +str(self.constant_counter)
     def create_options_combobox(self):
@@ -400,18 +399,13 @@ class FactsimScene(QGraphicsScene):
     # Method to create and place a node at a specific position
     def create_node(self, node_type, position):
         if node_type == "Decider":
-            color = QColor(150, 200, 150)
-            node = Decider(node_type, color)
+            node = Decider(node_type, pos=position)
         elif node_type == "Arithmetic":
-            color = QColor(107, 179, 0)
-            node = Arithmetic(node_type, color)
+            node = Arithmetic(node_type, pos=position)
         elif node_type == "Constant":
-            color = QColor(180, 27, 0)
-            node = Constant(node_type, color)
+            node = Constant(node_type, pos=position)
         else:
-            color = QColor(150, 200, 150)
-            node = Node(node_type, color)
-        node.setPos(position)
+            node = Node(node_type, pos=position)
         self.addItem(node)
         return node
 
@@ -513,8 +507,6 @@ class MainWindow(QMainWindow):
         self.create_top_toolbar()
         self.create_left_toolbar()
 
-        self.node_counter = 1
-
         
 
     def create_top_toolbar(self):
@@ -597,8 +589,15 @@ class MainWindow(QMainWindow):
                     jsonstring = zlib.decompress(jsonstringdata)
                     self.jsonstring = jsonstring
                     self.bpdict = json.loads(jsonstring)['blueprint']
-                    for item in self.bpdict['entities']:
-                        print(f"{item}")
+                    for entity in self.bpdict['entities']:
+                        print(f"{entity}")
+                        position = (entity['position']['x']*100, entity['position']['y']*100)
+                        if entity['name'] == 'decider-combinator':
+                            self.view.scene().create_node("Decider", QPointF(position[0], position[1]))
+                        elif entity['name'] == 'arithmetic-combinator':
+                            self.view.scene().create_node("Arithmetic", QPointF(position[0], position[1]))
+                        elif entity['name'] == 'constant-combinator':
+                            self.view.scene().create_node("Constant", QPointF(position[0], position[1]))
                         
             except Exception as e:
                 # Show an error message if the file could not be opened
@@ -648,10 +647,7 @@ class MainWindow(QMainWindow):
 
     def add_node(self, node_type):
         # Call the create_node method from FactsimScene
-        position = QPointF(100, 100)
-
-        self.view.scene().create_node(node_type, position)
-        self.node_counter += 1
+        self.view.scene().create_node(node_type, QPointF(100,100))
 
 
 if __name__ == "__main__":
