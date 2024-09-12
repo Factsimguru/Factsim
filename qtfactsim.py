@@ -483,10 +483,60 @@ class FactsimView(QGraphicsView):
         self.setScene(FactsimScene())
         self.setRenderHint(QPainter.Antialiasing)
         self.setDragMode(QGraphicsView.NoDrag)
+        self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
+        self.setResizeAnchor(QGraphicsView.AnchorUnderMouse)
+
+        # Variables for panning
+        self.panning = False
+        self.pan_start_pos = QPointF()
+
+    def mousePressEvent(self, event):
+        # Check if an item is under the mouse
+        item_under_mouse = self.itemAt(event.pos())
+
+        if event.button() == Qt.RightButton and not item_under_mouse:
+            # If right-click and no item under mouse, start panning
+            self.panning = True
+            self.pan_start_pos = event.position()  # Use position() instead of x() and y()
+            self.setCursor(Qt.ClosedHandCursor)
+        else:
+            # Otherwise, pass event to scene (for item interactions)
+            super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if self.panning:
+            # Handle panning
+            delta = event.position() - self.pan_start_pos
+            self.pan_start_pos = event.position()  # Update pan start position
+            self.horizontalScrollBar().setValue(self.horizontalScrollBar().value() - delta.x())
+            self.verticalScrollBar().setValue(self.verticalScrollBar().value() - delta.y())
+        else:
+            # Pass event to scene (for item interactions)
+            super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
-        super().mouseReleaseEvent(event)
-        self.scene().update_connections()
+        if event.button() == Qt.RightButton:
+            # Stop panning
+            self.panning = False
+            self.setCursor(Qt.ArrowCursor)
+        else:
+            # Pass event to scene (for item interactions)
+            super().mouseReleaseEvent(event)
+            self.scene().update_connections()
+
+    def wheelEvent(self, event):
+        # Allow zooming with the mouse wheel only if no item is selected
+        item_under_mouse = self.itemAt(event.position().toPoint())
+        if item_under_mouse is None:
+            zoom_factor = 1.15
+            if event.angleDelta().y() > 0:
+                self.scale(zoom_factor, zoom_factor)  # Zoom in
+            else:
+                self.scale(1 / zoom_factor, 1 / zoom_factor)  # Zoom out
+        else:
+            # Pass event to scene (for item interactions)
+            super().wheelEvent(event)
+
 
 # Main Window with Toolbar for adding nodes
 class MainWindow(QMainWindow):
