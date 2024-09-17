@@ -24,20 +24,24 @@
 #######################################################################
 
 
-import logging
-import sys
-from PySide6.QtWidgets import QApplication
-from main_window import MainWindow
+from PySide6.QtWidgets import QGraphicsPathItem
+from PySide6.QtGui import QPen, QPainterPath
+from PySide6.QtCore import QPointF
 
-# Setup logging (optional logging)
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+class Connection(QGraphicsPathItem):
+    def __init__(self, start_pin, end_pin, color):
+        super().__init__()
+        self.start_pin = start_pin
+        self.end_pin = end_pin
+        self.setPen(QPen(color, 2))
+        self.update_path()
 
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-
-    main_window = MainWindow()
-    main_window.setWindowTitle("Factsim UI")
-    main_window.setGeometry(100, 100, 1000, 600)
-    main_window.show()
-
-    sys.exit(app.exec())
+    def update_path(self):
+        path = QPainterPath()
+        start_pos = self.start_pin.mapToScene(self.start_pin.boundingRect().center())
+        end_pos = self.end_pin.mapToScene(self.end_pin.boundingRect().center())
+        control_point1 = QPointF(start_pos.x(), (start_pos.y() + end_pos.y()) / 2)
+        control_point2 = QPointF(end_pos.x(), (start_pos.y() + end_pos.y()) / 2)
+        path.moveTo(start_pos)
+        path.cubicTo(control_point1, control_point2, end_pos)
+        self.setPath(path)

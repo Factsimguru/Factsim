@@ -24,26 +24,69 @@
 #######################################################################
 
 
-import sys
+import sys, zlib, base64, json
 import logging
-from PySide6.QtCore import Qt, QRectF, QPointF, QLineF
-from PySide6.QtGui import QPainter, QPen, QBrush, QColor, QAction, QTransform, QPainterPath
+from PySide6.QtCore import Qt, QRectF, QPointF, QLineF, Signal
+from PySide6.QtGui import QPainter, QPen, QBrush, QColor, QAction, QTransform, QPainterPath, QFontMetricsF
 from PySide6.QtWidgets import (
     QGraphicsScene, QGraphicsView, QGraphicsItem, QApplication, 
-    QGraphicsEllipseItem, QGraphicsLineItem, QMainWindow, QToolBar, QGraphicsPathItem
+    QGraphicsEllipseItem, QGraphicsLineItem, QMainWindow, QToolBar, QGraphicsPathItem, QComboBox, QGraphicsProxyWidget, QDialog, QTabWidget, QVBoxLayout, QWidget, QLabel, QFileDialog, QMessageBox
 )
 
 # Setup logging (optional logging)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+
+class NodeDetailsWindow(QDialog):
+    def __init__(self, node):
+        super().__init__()
+        self.node = node
+        self.setWindowTitle(f"{node.name} Details")
+        self.setGeometry(100, 100, 400, 300)
+
+        # Create a QTabWidget
+        self.tab_widget = QTabWidget()
+        self.layout = QVBoxLayout(self)
+        self.layout.addWidget(self.tab_widget)
+
+        # Create tabs
+        self.config_tab = QWidget()
+        self.results_tab = QWidget()
+
+        # Add tabs to the QTabWidget
+        self.tab_widget.addTab(self.config_tab, "Configuration")
+        self.tab_widget.addTab(self.results_tab, "Results")
+
+        # Populate Configuration Tab
+        self.setup_config_tab()
+
+        # Populate Results Tab
+        self.setup_results_tab()
+
+    def setup_config_tab(self):
+        # Layout and widgets for the Configuration tab
+        layout = QVBoxLayout()
+        label = QLabel(f"Configure {self.node.name}")
+        layout.addWidget(label)
+        # Add more configuration widgets as needed, e.g., sliders, checkboxes
+        self.config_tab.setLayout(layout)
+
+    def setup_results_tab(self):
+        # Layout and widgets for the Results tab
+        layout = QVBoxLayout()
+        label = QLabel(f"Results for {self.node.name}")
+        layout.addWidget(label)
+        # Add more result display widgets as needed, e.g., text areas, plots
+        self.results_tab.setLayout(layout)
+
+
 #Custom Pin class
 class Pin(QGraphicsEllipseItem):
-    def __init__(self, x, y, width, height, parent, pin_name, is_input, color):
+    def __init__(self, parent, x, y, width, height, pin_name, pin_type, color):
         super().__init__(x, y, width, height, parent)
         self.pin_name = pin_name
         self.owningNode = parent
-        self.is_input = is_input
-        self.is_output = not is_input
+        self.pin_type = pin_type
         self.setZValue(1)  # Ensure pins are always on top
         if color == "red":
             self.setBrush(QBrush(QColor(255, 0, 0)))  # Red pins
@@ -57,39 +100,82 @@ class Pin(QGraphicsEllipseItem):
         return rect.adjusted(-2, -2, 2, 2)
 
 
-
+# Pins (4 pins: 2 inputs, 2 outputs) for the generic Node class
+DEFAULT_PINS = {
+            'input_red': (0, 20, 15, 15, 'input_red', "input", 'red'),
+            'output_red': (90, 20, 15, 15, 'output_red', "output", 'red'),
+            'input_green': (0, 35, 15, 15, 'input_green', "input", 'green'),
+            'output_green': (90, 35, 15, 15, 'output_green', "output", 'green'),
+        }
+OUT_PINS = {
+            'output_red': (40, 20, 15, 15, 'output_red', "output", 'red'),
+            'output_green': (40, 35, 15, 15, 'output_green', "output", 'green')
+        }
+    
 # Custom Node Class
 class Node(QGraphicsItem):
     node_counter = 0  # Class variable to count node instances
 
-    def __init__(self, name, node_type, color=QColor(100, 100, 255)):
+    def __init__(self, node_type, color=QColor(150, 200, 150), pos=QPointF(100,100) , pins=DEFAULT_PINS, rect = QRectF(0, 0, 110, 50), from_dict = False):
         super().__init__()
-        self.rect = QRectF(0, 0, 100, 50)  # Define the rectangle for the node
+        self.rect = rect  # Define the rectangle for the node
         self.node_type = node_type
         self.color = color  # Initialize the color attribute
         Node.node_counter += 1
         self.node_id = Node.node_counter  # Unique ID for each node
-        self.name = self.node_type + self.node_id
+        self.name = "Node" + "  " +str(self.node_id)
 
-        # Pins (4 pins: 2 inputs, 2 outputs) with the custom Pin class
-        self.pins = {
-            'input_red': Pin(0, 20, 15, 15, self, 'input_red', True, 'red'),
-            'output_red': Pin(90, 20, 15, 15, self, 'output_red', False, 'red'),
-            'input_green': Pin(0, 35, 15, 15, self, 'input_green', True, 'green'),
-            'output_green': Pin(90, 35, 15, 15, self, 'output_green', False, 'green'),
-        }
+        self.pins = {}
+        self.create_pins(pins)
+        self.local_tick = 0
+        self.active = True
 
         self.setFlag(QGraphicsItem.ItemIsMovable)
         self.setFlag(QGraphicsItem.ItemSendsGeometryChanges)
+        
+        
+        self.create_options_combobox()
+        self.setPos(pos)
 
+    def create_options_combobox(self):
+        # Create combobox for configuration
+        self.combo_box = QComboBox()
+        self.combo_box.addItems(["Option 1", "Option 2", "Option 3"])
+        self.combo_box.currentIndexChanged.connect(self.combo_changed)
+        self.combo_box.setFixedWidth(50)
 
+        # Use a QGraphicsProxyWidget to embed the combo box inside the scene
+        self.proxy_widget = QGraphicsProxyWidget(self)
+        self.proxy_widget.setWidget(self.combo_box)
+        self.proxy_widget.setPos(25,25)  # Adjust this position based on where you want the combobox inside the node
+        
+
+    def create_pins(self, pins_dict):
+        for key, value in pins_dict.items():
+            updated_value = (self,) + value
+            self.pins[key] = Pin(*updated_value)
+
+    def combo_changed(self, index):
+        # Handle combo box change
+        selected_option = self.combo_box.currentText()
+        logging.info(f"Node {self.node_id} - ComboBox changed to {selected_option}")
+
+            
     def boundingRect(self):
-        return self.rect
+        return self.rect.adjusted(0, 0, 0, 30)
 
     def paint(self, painter, option, widget):
         painter.setBrush(QBrush(self.color))
         painter.drawRect(self.rect)
-        painter.drawText(self.rect, Qt.AlignCenter, f"{self.name} ({self.node_id})\n{self.node_type}")
+        textrect = self.rect.adjusted(5,0,-5,-20)
+
+        # Set a default font
+        font = painter.font()
+        font.setPointSize(12)  
+        painter.setFont(font)
+
+        
+        painter.drawText(textrect, Qt.AlignCenter, f"{self.name}")
 
     # When the node is moved, inform the connections to update their positions
     def itemChange(self, change, value):
@@ -98,13 +184,42 @@ class Node(QGraphicsItem):
             if isinstance(scene, FactsimScene):
                 scene.update_connections()
         return super().itemChange(change, value)
+    def compute(self):
+        if self.active:
+            self.local_tick += 1
+    def handle_global_tick(self, tick):
+        logging.info(f"Node {self.node_id} received global tick: {tick}")
+            
 
 
 
+class Decider(Node):
+    decider_counter = 0
+    def __init__(self, node_type, color=QColor(100, 100, 255),pos=QPointF(100,100), pins=DEFAULT_PINS, from_dict=False):
+        super().__init__(node_type, color=color,pos=pos, pins=pins, from_dict=from_dict)
+        
+        Decider.decider_counter += 1
+        self.name = "DEC" + " " +str(self.decider_counter)
+        
 
 
+class Arithmetic(Node):
+    arithmetic_counter = 0
+    def __init__(self, node_type, color=QColor(107, 179, 0),pos=QPointF(100,100), pins=DEFAULT_PINS, from_dict=False):
+        super().__init__(node_type, color=color, pos=pos, pins=pins, from_dict=from_dict)
+        Arithmetic.arithmetic_counter += 1
+        self.name = "ART" + " " +str(self.arithmetic_counter)
 
-# Custom Connection Class (to connect pins, not nodes)
+class Constant(Node):
+    constant_counter = 0
+    def __init__(self, node_type, color=QColor(180,27,0), pos=QPointF(100,100), pins=OUT_PINS, rect=QRectF(0,0,50, 50), from_dict=False):
+        super().__init__(node_type, color=color,pos=pos, pins=OUT_PINS, rect=rect, from_dict=from_dict)
+        Constant.constant_counter += 1
+        self.name = "C" + "  " +str(self.constant_counter)
+    def create_options_combobox(self):
+        pass
+
+# Custom Connection Class (to connect pins)
 class Connection(QGraphicsPathItem):
     def __init__(self, start_pin, end_pin, color):
         super().__init__()
@@ -137,6 +252,17 @@ class FactsimScene(QGraphicsScene):
         self.current_connection = None
         self.current_pin = None
         self.connections_dict = {}  # Dictionary to store connections by frozenset of pins
+        self.nodes_dict = {}
+
+    def reset_scene(self):
+        self.current_connection = None
+        self.current_pin = None
+        for name,node in self.nodes_dict.items():
+            self.delete_node(node)
+        self.nodes_dict = {}
+        for item in self.items():
+            self.removeItem(item)
+        
 
     def start_connection(self, pin, color):
         self.current_pin = pin
@@ -147,7 +273,7 @@ class FactsimScene(QGraphicsScene):
         # Log starting point for connection
         parent_node = self.current_pin.parentItem()
         pin_name = self.get_pin_name(self.current_pin)
-        logging.info(f"Connection started from {pin_name} on Node {parent_node.node_id}")
+        logging.info(f"Connection started from {pin_name} on Node {parent_node.name}")
 
     def finish_connection(self, end_pin):
         if self.current_connection and self.current_pin:
@@ -177,11 +303,11 @@ class FactsimScene(QGraphicsScene):
                     self.addItem(connection)
                     self.connections_dict[connection_key] = connection  # Store the connection
 
-                    logging.info(f"Connection done between {start_pin_name} on Node {start_node.node_id} and "
-                                 f"{end_pin_name} on Node {end_node.node_id}")
+                    logging.info(f"Connection done between {start_pin_name} on Node {start_node.name} and "
+                                 f"{end_pin_name} on Node {end_node.name}")
                 else:
                     logging.warning(f"Connection failed: Mismatched colors or pin types between pins "
-                                    f"on Node {start_node.node_id}")
+                                    f"on Node {start_node.name}")
             else:
                 # Different nodes: Check if the end pin is the same color as the start pin
                 if self.current_pin.brush().color() == end_pin.brush().color():
@@ -190,11 +316,11 @@ class FactsimScene(QGraphicsScene):
                     self.addItem(connection)
                     self.connections_dict[connection_key] = connection  # Store the connection
 
-                    logging.info(f"Connection done between {start_pin_name} from Node {start_node.node_id} "
-                                 f"and {end_pin_name} from Node {end_node.node_id}")
+                    logging.info(f"Connection done between {start_pin_name} from Node {start_node.name} "
+                                 f"and {end_pin_name} from Node {end_node.name}")
                 else:
                     logging.warning(f"Connection failed: Mismatched colors between pins "
-                                    f"on Node {start_node.node_id} and Node {end_node.node_id}")
+                                    f"on Node {start_node.name} and Node {end_node.name}")
             self.removeItem(self.current_connection)
 
         # Reset the temporary connection and pin tracking
@@ -206,7 +332,7 @@ class FactsimScene(QGraphicsScene):
         node = pin.parentItem()
         for name, p in node.pins.items():
             if p is pin:
-                return name
+                return p.pin_name
         return "Unknown pin"
 
     def mouseMoveEvent(self, event):
@@ -249,7 +375,7 @@ class FactsimScene(QGraphicsScene):
                 break
 
         if pin_item:
-            logging.info(f"Pin detected at release position: {pin_item} on Node {pin_item.parentItem().name}")
+            logging.info(f"Pin {pin_item.pin_name} detected at release position on Node {pin_item.parentItem().name}")
         else:
             logging.info("No valid pin detected at release position")
 
@@ -264,15 +390,35 @@ class FactsimScene(QGraphicsScene):
 
         super().mouseReleaseEvent(event)
 
+    def mouseDoubleClickEvent(self, event):
+        item = self.itemAt(event.scenePos(), QTransform())
+        if isinstance(item, Node):  # Assuming your nodes are represented by a `Node` class
+            self.open_node_details(item)
+        else:
+            super().mouseDoubleClickEvent(event)
+
+    def open_node_details(self, node):
+        # Create and show the NodeDetailsWindow
+        self.details_window = NodeDetailsWindow(node)
+        self.details_window.exec()
+        
     def update_connections(self):
         for conn in self.connections_dict.values():
             conn.update_path()
 
     # Method to create and place a node at a specific position
-    def create_node(self, name, node_type, color, position):
-        node = Node(name, node_type, color)
-        node.setPos(position)
+    def create_node(self, node_type, position):
+        if node_type == "Decider":
+            node = Decider(node_type, pos=position)
+        elif node_type == "Arithmetic":
+            node = Arithmetic(node_type, pos=position)
+        elif node_type == "Constant":
+            node = Constant(node_type, pos=position)
+        else:
+            node = Node(node_type, pos=position)
         self.addItem(node)
+        self.nodes_dict[node.name] = node
+        #print(self.nodes_dict)
         return node
 
     def delete_node(self, node):
@@ -323,6 +469,8 @@ class FactsimScene(QGraphicsScene):
             else:
                 logging.warning(f"Connection failed: Colors do not match between {start_pin_name} on Node "
                                 f"{start_node.node_id} and {end_pin_name} on Node {end_node.node_id}")
+
+                
     def delete_connection(self, start_pin, end_pin):
         connection_key = frozenset([start_pin, end_pin])
 
@@ -334,6 +482,12 @@ class FactsimScene(QGraphicsScene):
         else:
             logging.warning(f"Connection between {self.get_pin_name(start_pin)} and {self.get_pin_name(end_pin)} not found.")
 
+    def update_global_tick(self, tick):
+        # Method to handle the global tick update
+        logging.info(f"Updating nodes with new global tick: {tick}")
+        for item in self.items():
+            if isinstance(item, Node):
+                item.handle_global_tick(tick)
 
 
 
@@ -343,13 +497,65 @@ class FactsimView(QGraphicsView):
         self.setScene(FactsimScene())
         self.setRenderHint(QPainter.Antialiasing)
         self.setDragMode(QGraphicsView.NoDrag)
+        self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
+        self.setResizeAnchor(QGraphicsView.AnchorUnderMouse)
+
+        # Variables for panning
+        self.panning = False
+        self.pan_start_pos = QPointF()
+
+    def mousePressEvent(self, event):
+        # Check if an item is under the mouse
+        item_under_mouse = self.itemAt(event.pos())
+
+        if event.button() == Qt.RightButton and not item_under_mouse:
+            # If right-click and no item under mouse, start panning
+            self.panning = True
+            self.pan_start_pos = event.position()  # Use position() instead of x() and y()
+            self.setCursor(Qt.ClosedHandCursor)
+        else:
+            # Otherwise, pass event to scene (for item interactions)
+            super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if self.panning:
+            # Handle panning
+            delta = event.position() - self.pan_start_pos
+            self.pan_start_pos = event.position()  # Update pan start position
+            self.horizontalScrollBar().setValue(self.horizontalScrollBar().value() - delta.x())
+            self.verticalScrollBar().setValue(self.verticalScrollBar().value() - delta.y())
+        else:
+            # Pass event to scene (for item interactions)
+            super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
-        super().mouseReleaseEvent(event)
-        self.scene().update_connections()
+        if event.button() == Qt.RightButton:
+            # Stop panning
+            self.panning = False
+            self.setCursor(Qt.ArrowCursor)
+        else:
+            # Pass event to scene (for item interactions)
+            super().mouseReleaseEvent(event)
+            self.scene().update_connections()
+
+    def wheelEvent(self, event):
+        # Allow zooming with the mouse wheel only if no item is selected
+        item_under_mouse = self.itemAt(event.position().toPoint())
+        if item_under_mouse is None:
+            zoom_factor = 1.15
+            if event.angleDelta().y() > 0:
+                self.scale(zoom_factor, zoom_factor)  # Zoom in
+            else:
+                self.scale(1 / zoom_factor, 1 / zoom_factor)  # Zoom out
+        else:
+            # Pass event to scene (for item interactions)
+            super().wheelEvent(event)
+
 
 # Main Window with Toolbar for adding nodes
 class MainWindow(QMainWindow):
+    global_tick_changed = Signal(int)
+    
     def __init__(self):
         super().__init__()
 
@@ -358,11 +564,12 @@ class MainWindow(QMainWindow):
         # Initialize a global tick
         self.global_tick = 0
 
+        # Connect the signal to a slot in FactsimScene
+        self.global_tick_changed.connect(self.view.scene().update_global_tick)
+
         # Create toolbars
         self.create_top_toolbar()
         self.create_left_toolbar()
-
-        self.node_counter = 1
 
         
 
@@ -370,6 +577,11 @@ class MainWindow(QMainWindow):
         # Create the top toolbar
         top_toolbar = QToolBar("Simulation Controls", self)
         self.addToolBar(Qt.TopToolBarArea, top_toolbar)
+
+        #add New button
+        new_action = QAction("New", self)
+        new_action.triggered.connect(self.view.scene().reset_scene)
+        top_toolbar.addAction(new_action)
 
         # Add Open and Save As buttons
         open_action = QAction("Open", self)
@@ -408,10 +620,16 @@ class MainWindow(QMainWindow):
         toolbar = QToolBar("Tools", self)
         self.addToolBar(Qt.LeftToolBarArea, toolbar)
 
-        # Action to add a node
-        add_node_action = QAction("Add Node", self)
-        add_node_action.triggered.connect(self.add_node)
-        toolbar.addAction(add_node_action)
+        # Create actions for different node types
+        node_types = ["Decider", "Arithmetic", "Constant"]
+           
+        # Create buttons for each node type
+        for node_type in node_types:
+            action = QAction(node_type, self)
+            # Use a lambda to pass the node_type to add_node
+            action.triggered.connect(lambda checked, nt=node_type: self.add_node(nt))
+            toolbar.addAction(action)
+
 
     def create_tick_edit(self, toolbar):
         # Entry to edit and display the global tick
@@ -422,28 +640,67 @@ class MainWindow(QMainWindow):
         return tick_edit
 
     def open_file(self):
-        # Implement functionality to open a file (left as an exercise)
+        # Implement functionality to open a file
         logging.info("Open file triggered")
+        # Open a file dialog to select the file
+        file_dialog = QFileDialog()
+        file_path, _ = file_dialog.getOpenFileName(self, "Open File", "", "Blueprint Files (*.bp);;All Files (*)")
 
+        if file_path:
+            try:
+                # Assuming you're opening a JSON file or some text-based format
+                with open(file_path, 'r') as file:
+                    #file_contents = file.read()
+                    # Process the file (you can parse the content here if needed)
+                    logging.info(f"Opened file: {file_path}")
+                    jsonstring64 = file.read()[1:]
+                    jsonstringdata = base64.b64decode(jsonstring64)
+                    jsonstring = zlib.decompress(jsonstringdata)
+                    self.jsonstring = jsonstring
+                    self.bpdict = json.loads(jsonstring)['blueprint']
+                    for entity in self.bpdict['entities']:
+                        print(f"{entity}")
+                        position = (entity['position']['x']*100, entity['position']['y']*100)
+                        if entity['name'] == 'decider-combinator':
+                            self.view.scene().create_node("Decider", QPointF(position[0], position[1]))
+                        elif entity['name'] == 'arithmetic-combinator':
+                            self.view.scene().create_node("Arithmetic", QPointF(position[0], position[1]))
+                        elif entity['name'] == 'constant-combinator':
+                            self.view.scene().create_node("Constant", QPointF(position[0], position[1]))
+                        
+            except Exception as e:
+                # Show an error message if the file could not be opened
+                error_msg = QMessageBox()
+                error_msg.setIcon(QMessageBox.Critical)
+                error_msg.setText(f"Failed to open the file: {e}")
+                error_msg.setWindowTitle("File Open Error")
+                error_msg.exec()
+        else:
+            logging.info("File selection canceled")
+
+        
     def save_as_file(self):
-        # Implement functionality to save as a file (left as an exercise)
+        # Implement functionality to save as a file
         logging.info("Save As file triggered")
 
     def simulation_start(self):
         self.global_tick = 0
         self.update_tick_display()
         logging.info("Simulation reset to start")
+        self.global_tick_changed.emit(self.global_tick)
 
     def simulation_back(self):
         if self.global_tick > 0:
             self.global_tick -= 1
             self.update_tick_display()
         logging.info(f"Simulation moved back to tick {self.global_tick}")
+        self.global_tick_changed.emit(self.global_tick)
 
     def simulation_forward(self):
         self.global_tick += 1
         self.update_tick_display()
         logging.info(f"Simulation advanced to tick {self.global_tick}")
+        self.global_tick_changed.emit(self.global_tick)
 
     def simulation_play(self):
         # Implement play functionality (simulation loop, left as an exercise)
@@ -457,15 +714,9 @@ class MainWindow(QMainWindow):
         # Update the tick display in the toolbar
         self.tick_edit.setText(f"Tick: {self.global_tick}")
 
-    def add_node(self):
+    def add_node(self, node_type):
         # Call the create_node method from FactsimScene
-        node_name = f"Node {self.node_counter}"
-        node_type = "Type A"
-        node_color = QColor(150, 200, 150)
-        position = QPointF(100 + (self.node_counter * 20), 100 + (self.node_counter * 20))
-
-        self.view.scene().create_node(node_name, node_type, node_color, position)
-        self.node_counter += 1
+        self.view.scene().create_node(node_type, QPointF(100,100))
 
 
 if __name__ == "__main__":

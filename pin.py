@@ -23,21 +23,23 @@
 # 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #######################################################################
 
+from PySide6.QtWidgets import QGraphicsEllipseItem
+from PySide6.QtGui import QBrush, QColor
 
-import logging
-import sys
-from PySide6.QtWidgets import QApplication
-from main_window import MainWindow
+class Pin(QGraphicsEllipseItem):
+    def __init__(self, parent, x, y, width, height, pin_name, pin_type, color):
+        super().__init__(x, y, width, height, parent)
+        self.pin_name = pin_name
+        self.owningNode = parent
+        self.pin_type = pin_type
+        self.setZValue(1)  # Ensure pins are always on top
+        if color == "red":
+            self.setBrush(QBrush(QColor(255, 0, 0)))  # Red pins
+        elif color == "green":
+            self.setBrush(QBrush(QColor(0, 255, 0)))  # Green pins
+        else:
+            raise Exception("Only red or green colors, for now")
 
-# Setup logging (optional logging)
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-
-    main_window = MainWindow()
-    main_window.setWindowTitle("Factsim UI")
-    main_window.setGeometry(100, 100, 1000, 600)
-    main_window.show()
-
-    sys.exit(app.exec())
+    def boundingRect(self):
+        rect = super().boundingRect()
+        return rect.adjusted(-2, -2, 2, 2)
