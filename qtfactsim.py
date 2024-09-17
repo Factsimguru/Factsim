@@ -82,12 +82,11 @@ class NodeDetailsWindow(QDialog):
 
 #Custom Pin class
 class Pin(QGraphicsEllipseItem):
-    def __init__(self, parent, x, y, width, height, pin_name, is_input, color):
+    def __init__(self, parent, x, y, width, height, pin_name, pin_type, color):
         super().__init__(x, y, width, height, parent)
         self.pin_name = pin_name
         self.owningNode = parent
-        self.is_input = is_input
-        self.is_output = not is_input
+        self.pin_type = pin_type
         self.setZValue(1)  # Ensure pins are always on top
         if color == "red":
             self.setBrush(QBrush(QColor(255, 0, 0)))  # Red pins
@@ -103,14 +102,14 @@ class Pin(QGraphicsEllipseItem):
 
 # Pins (4 pins: 2 inputs, 2 outputs) for the generic Node class
 DEFAULT_PINS = {
-            'input_red': (0, 20, 15, 15, 'input_red', True, 'red'),
-            'output_red': (90, 20, 15, 15, 'output_red', False, 'red'),
-            'input_green': (0, 35, 15, 15, 'input_green', True, 'green'),
-            'output_green': (90, 35, 15, 15, 'output_green', False, 'green'),
+            'input_red': (0, 20, 15, 15, 'input_red', "input", 'red'),
+            'output_red': (90, 20, 15, 15, 'output_red', "output", 'red'),
+            'input_green': (0, 35, 15, 15, 'input_green', "input", 'green'),
+            'output_green': (90, 35, 15, 15, 'output_green', "output", 'green'),
         }
 OUT_PINS = {
-            'output_red': (40, 20, 15, 15, 'output_red', False, 'red'),
-            'output_green': (40, 35, 15, 15, 'output_green', False, 'green')
+            'output_red': (40, 20, 15, 15, 'output_red', "output", 'red'),
+            'output_green': (40, 35, 15, 15, 'output_green', "output", 'green')
         }
     
 # Custom Node Class
@@ -253,6 +252,17 @@ class FactsimScene(QGraphicsScene):
         self.current_connection = None
         self.current_pin = None
         self.connections_dict = {}  # Dictionary to store connections by frozenset of pins
+        self.nodes_dict = {}
+
+    def reset_scene(self):
+        self.current_connection = None
+        self.current_pin = None
+        for name,node in self.nodes_dict.items():
+            self.delete_node(node)
+        self.nodes_dict = {}
+        for item in self.items():
+            self.removeItem(item)
+        
 
     def start_connection(self, pin, color):
         self.current_pin = pin
@@ -263,7 +273,7 @@ class FactsimScene(QGraphicsScene):
         # Log starting point for connection
         parent_node = self.current_pin.parentItem()
         pin_name = self.get_pin_name(self.current_pin)
-        logging.info(f"Connection started from {pin_name} on Node {parent_node.node_id}")
+        logging.info(f"Connection started from {pin_name} on Node {parent_node.name}")
 
     def finish_connection(self, end_pin):
         if self.current_connection and self.current_pin:
@@ -293,11 +303,11 @@ class FactsimScene(QGraphicsScene):
                     self.addItem(connection)
                     self.connections_dict[connection_key] = connection  # Store the connection
 
-                    logging.info(f"Connection done between {start_pin_name} on Node {start_node.node_id} and "
-                                 f"{end_pin_name} on Node {end_node.node_id}")
+                    logging.info(f"Connection done between {start_pin_name} on Node {start_node.name} and "
+                                 f"{end_pin_name} on Node {end_node.name}")
                 else:
                     logging.warning(f"Connection failed: Mismatched colors or pin types between pins "
-                                    f"on Node {start_node.node_id}")
+                                    f"on Node {start_node.name}")
             else:
                 # Different nodes: Check if the end pin is the same color as the start pin
                 if self.current_pin.brush().color() == end_pin.brush().color():
@@ -306,11 +316,11 @@ class FactsimScene(QGraphicsScene):
                     self.addItem(connection)
                     self.connections_dict[connection_key] = connection  # Store the connection
 
-                    logging.info(f"Connection done between {start_pin_name} from Node {start_node.node_id} "
-                                 f"and {end_pin_name} from Node {end_node.node_id}")
+                    logging.info(f"Connection done between {start_pin_name} from Node {start_node.name} "
+                                 f"and {end_pin_name} from Node {end_node.name}")
                 else:
                     logging.warning(f"Connection failed: Mismatched colors between pins "
-                                    f"on Node {start_node.node_id} and Node {end_node.node_id}")
+                                    f"on Node {start_node.name} and Node {end_node.name}")
             self.removeItem(self.current_connection)
 
         # Reset the temporary connection and pin tracking
@@ -322,7 +332,7 @@ class FactsimScene(QGraphicsScene):
         node = pin.parentItem()
         for name, p in node.pins.items():
             if p is pin:
-                return name
+                return p.pin_name
         return "Unknown pin"
 
     def mouseMoveEvent(self, event):
@@ -365,7 +375,7 @@ class FactsimScene(QGraphicsScene):
                 break
 
         if pin_item:
-            logging.info(f"Pin detected at release position: {pin_item} on Node {pin_item.parentItem().name}")
+            logging.info(f"Pin {pin_item.pin_name} detected at release position on Node {pin_item.parentItem().name}")
         else:
             logging.info("No valid pin detected at release position")
 
@@ -407,6 +417,8 @@ class FactsimScene(QGraphicsScene):
         else:
             node = Node(node_type, pos=position)
         self.addItem(node)
+        self.nodes_dict[node.name] = node
+        #print(self.nodes_dict)
         return node
 
     def delete_node(self, node):
@@ -457,6 +469,8 @@ class FactsimScene(QGraphicsScene):
             else:
                 logging.warning(f"Connection failed: Colors do not match between {start_pin_name} on Node "
                                 f"{start_node.node_id} and {end_pin_name} on Node {end_node.node_id}")
+
+                
     def delete_connection(self, start_pin, end_pin):
         connection_key = frozenset([start_pin, end_pin])
 
@@ -563,6 +577,11 @@ class MainWindow(QMainWindow):
         # Create the top toolbar
         top_toolbar = QToolBar("Simulation Controls", self)
         self.addToolBar(Qt.TopToolBarArea, top_toolbar)
+
+        #add New button
+        new_action = QAction("New", self)
+        new_action.triggered.connect(self.view.scene().reset_scene)
+        top_toolbar.addAction(new_action)
 
         # Add Open and Save As buttons
         open_action = QAction("Open", self)
