@@ -45,15 +45,20 @@ OUT_PINS = {
 
 # Custom Node Class
 class Node(QGraphicsItem):
-    node_counter = 0  # Class variable to count node instances
+    max_id = 0  # Class variable to count node instancestrack the max id
 
-    def __init__(self, node_type, color=QColor(150, 200, 150), pos=QPointF(100,100) , pins=DEFAULT_PINS, rect = QRectF(0, 0, 110, 50), from_dict = False):
+    def __init__(self, node_type, color=QColor(150, 200, 150), pos=QPointF(100,100) , pins=DEFAULT_PINS, rect = QRectF(0, 0, 110, 50), from_dict = False, node_id=None):
         super().__init__()
         self.rect = rect  # Define the rectangle for the node
         self.node_type = node_type
         self.color = color  # Initialize the color attribute
-        Node.node_counter += 1
-        self.node_id = Node.node_counter  # Unique ID for each node
+        if not node_id: # Unique ID for each node
+            Node.max_id += 1
+            self.node_id = Node.max_id  
+        else:
+            self.node_id = node_id
+            Node.max_id = max(node_id, Node.max_id)
+            
         self.name = "Node" + "  " +str(self.node_id)
 
         self.pins = {}
@@ -126,27 +131,18 @@ class Node(QGraphicsItem):
 
 
 class Decider(Node):
-    decider_counter = 0
-    def __init__(self, node_type, color=QColor(100, 100, 255),pos=QPointF(100,100), pins=DEFAULT_PINS, from_dict=False):
-        super().__init__(node_type, color=color,pos=pos, pins=pins, from_dict=from_dict)
+    def __init__(self, node_type, color=QColor(100, 100, 255),pos=QPointF(100,100), pins=DEFAULT_PINS, from_dict=False, node_id=None):
+        super().__init__(node_type, color=color,pos=pos, pins=pins, from_dict=from_dict, node_id=node_id)
+        self.name = "DEC" + " " + str(self.node_id)
         
-        Decider.decider_counter += 1
-        self.name = "DEC" + " " +str(self.decider_counter)
-        
-
-
 class Arithmetic(Node):
-    arithmetic_counter = 0
-    def __init__(self, node_type, color=QColor(107, 179, 0),pos=QPointF(100,100), pins=DEFAULT_PINS, from_dict=False):
-        super().__init__(node_type, color=color, pos=pos, pins=pins, from_dict=from_dict)
-        Arithmetic.arithmetic_counter += 1
-        self.name = "ART" + " " +str(self.arithmetic_counter)
+    def __init__(self, node_type, color=QColor(107, 179, 0),pos=QPointF(100,100), pins=DEFAULT_PINS, from_dict=False, node_id=None):
+        super().__init__(node_type, color=color, pos=pos, pins=pins, from_dict=from_dict, node_id=node_id)
+        self.name = "ART" + " " + str(self.node_id)
 
 class Constant(Node):
-    constant_counter = 0
-    def __init__(self, node_type, color=QColor(180,27,0), pos=QPointF(100,100), pins=OUT_PINS, rect=QRectF(0,0,50, 50), from_dict=False):
-        super().__init__(node_type, color=color,pos=pos, pins=OUT_PINS, rect=rect, from_dict=from_dict)
-        Constant.constant_counter += 1
-        self.name = "C" + "  " +str(self.constant_counter)
+    def __init__(self, node_type, color=QColor(180,27,0), pos=QPointF(100,100), pins=OUT_PINS, rect=QRectF(0,0,50, 50), from_dict=False, node_id=None):
+        super().__init__(node_type, color=color,pos=pos, pins=OUT_PINS, rect=rect, from_dict=from_dict, node_id=node_id)
+        self.name = "C" + "  " + str(self.node_id)
     def create_options_combobox(self):
         pass

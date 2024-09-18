@@ -143,13 +143,25 @@ class MainWindow(QMainWindow):
                     self.bpdict = json.loads(jsonstring)['blueprint']
                     for entity in self.bpdict['entities']:
                         print(f"{entity}")
-                        position = (entity['position']['x']*100, entity['position']['y']*100)
+                        position =  QPointF(entity['position']['x']*100, entity['position']['y']*100)
+                        node_id = (entity['entity_number'])
+                        print(node_id)
                         if entity['name'] == 'decider-combinator':
-                            self.view.scene().create_node("Decider", QPointF(position[0], position[1]))
+                            self.view.scene().create_node("Decider", position, node_id=node_id)
                         elif entity['name'] == 'arithmetic-combinator':
-                            self.view.scene().create_node("Arithmetic", QPointF(position[0], position[1]))
+                            self.view.scene().create_node("Arithmetic", position, node_id=node_id)
                         elif entity['name'] == 'constant-combinator':
-                            self.view.scene().create_node("Constant", QPointF(position[0], position[1]))
+                            self.view.scene().create_node("Constant", position, node_id=node_id)
+                            
+                    for entity in self.bpdict.get('entities'):
+                        
+                        if entity.get('connections').get('1'):
+                            for color, connections in entity.get('connections').get('1').items():
+                                print(connections)
+                        if entity.get('connections').get('2'):
+                            for color, connections in entity.get('connections').get('2').items():
+                                print(connections)
+
                         
             except Exception as e:
                 # Show an error message if the file could not be opened

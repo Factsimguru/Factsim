@@ -194,15 +194,15 @@ class FactsimScene(QGraphicsScene):
             conn.update_path()
 
     # Method to create and place a node at a specific position
-    def create_node(self, node_type, position):
+    def create_node(self, node_type, position, node_id=None):
         if node_type == "Decider":
-            node = Decider(node_type, pos=position)
+            node = Decider(node_type, pos=position, node_id=node_id)
         elif node_type == "Arithmetic":
-            node = Arithmetic(node_type, pos=position)
+            node = Arithmetic(node_type, pos=position, node_id=node_id)
         elif node_type == "Constant":
-            node = Constant(node_type, pos=position)
+            node = Constant(node_type, pos=position, node_id=node_id)
         else:
-            node = Node(node_type, pos=position)
+            node = Node(node_type, pos=position,  node_id=node_id)
         self.addItem(node)
         self.nodes_dict[node.name] = node
         #print(self.nodes_dict)
