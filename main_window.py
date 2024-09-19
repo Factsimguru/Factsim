@@ -152,15 +152,17 @@ class MainWindow(QMainWindow):
                             self.view.scene().create_node("Arithmetic", position, node_id=node_id)
                         elif entity['name'] == 'constant-combinator':
                             self.view.scene().create_node("Constant", position, node_id=node_id)
+                        if 'electric-pole' in entity['name'] or 'substation' in entity['name']:
+                            self.view.scene().create_node("Pole", position, node_id=node_id)
                             
                     for entity in self.bpdict.get('entities'):
                         
                         if entity.get('connections').get('1'):
                             for color, connections in entity.get('connections').get('1').items():
-                                print(connections)
+                                print(color, connections)
                         if entity.get('connections').get('2'):
                             for color, connections in entity.get('connections').get('2').items():
-                                print(connections)
+                                print(color, connections)
 
                         
             except Exception as e:

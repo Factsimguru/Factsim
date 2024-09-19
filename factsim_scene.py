@@ -29,7 +29,7 @@ from PySide6.QtGui import QTransform, QPainterPath, QPen
 from PySide6.QtWidgets import QGraphicsScene, QGraphicsEllipseItem, QGraphicsPathItem
 from connection import Connection
 from node_details_window import NodeDetailsWindow
-from node import Decider, Arithmetic, Constant, Node
+from node import Decider, Arithmetic, Constant, Pole, Node
 import logging
 
 class FactsimScene(QGraphicsScene):
@@ -201,6 +201,8 @@ class FactsimScene(QGraphicsScene):
             node = Arithmetic(node_type, pos=position, node_id=node_id)
         elif node_type == "Constant":
             node = Constant(node_type, pos=position, node_id=node_id)
+        elif node_type == "Pole":
+            node = Pole(node_type, pos=position, node_id=node_id)
         else:
             node = Node(node_type, pos=position,  node_id=node_id)
         self.addItem(node)

@@ -42,6 +42,11 @@ OUT_PINS = {
     'output_green': (40, 35, 15, 15, 'output_green', "output", 'green')
 }
 
+POLE_PINS = {
+    'io_red': (10, 20, 15, 15, 'io_red', "both", 'red'),
+    'io_green': (10, 35, 15, 15, 'io_green', "both", 'green')
+}
+
 
 # Custom Node Class
 class Node(QGraphicsItem):
@@ -142,7 +147,12 @@ class Arithmetic(Node):
 
 class Constant(Node):
     def __init__(self, node_type, color=QColor(180,27,0), pos=QPointF(100,100), pins=OUT_PINS, rect=QRectF(0,0,50, 50), from_dict=False, node_id=None):
-        super().__init__(node_type, color=color,pos=pos, pins=OUT_PINS, rect=rect, from_dict=from_dict, node_id=node_id)
-        self.name = "C" + "  " + str(self.node_id)
+        super().__init__(node_type, color=color,pos=pos, pins=pins, rect=rect, from_dict=from_dict, node_id=node_id)
+        self.name = "C" + " " + str(self.node_id)
     def create_options_combobox(self):
         pass
+
+class Pole(Constant):
+    def __init__(self, node_type, color=QColor(200,200,200), pos=QPointF(100,100), pins=POLE_PINS, rect=QRectF(0,0,30, 50), from_dict=False, node_id=None):
+        super().__init__(node_type, color=color,pos=pos, pins=pins, rect=rect, from_dict=from_dict, node_id=node_id)
+        self.name = "P" + str(self.node_id)
