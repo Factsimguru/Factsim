@@ -38,6 +38,10 @@ class FactsimView(QGraphicsView):
         self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
         self.setResizeAnchor(QGraphicsView.AnchorUnderMouse)
 
+        # Disable scrollbars
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
         # Variables for panning
         self.panning = False
         self.pan_start_pos = QPointF()
@@ -60,8 +64,8 @@ class FactsimView(QGraphicsView):
             # Handle panning
             delta = event.position() - self.pan_start_pos
             self.pan_start_pos = event.position()  # Update pan start position
-            self.horizontalScrollBar().setValue(self.horizontalScrollBar().value() - delta.x())
-            self.verticalScrollBar().setValue(self.verticalScrollBar().value() - delta.y())
+            self.setTransformationAnchor(QGraphicsView.NoAnchor)
+            self.translate( delta.x(), delta.y())
         else:
             # Pass event to scene (for item interactions)
             super().mouseMoveEvent(event)
