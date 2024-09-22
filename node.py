@@ -38,13 +38,13 @@ DEFAULT_PINS = {
 }
 
 OUT_PINS = {
-    'output_red': (40, 20, 15, 15, 'output_red', "output", 'red'),
-    'output_green': (40, 35, 15, 15, 'output_green', "output", 'green')
+    'red': (40, 20, 15, 15, 'red', "output", 'red'),
+    'green': (40, 35, 15, 15, 'green', "output", 'green')
 }
 
 POLE_PINS = {
-    'io_red': (10, 20, 15, 15, 'io_red', "both", 'red'),
-    'io_green': (10, 35, 15, 15, 'io_green', "both", 'green')
+    'red': (10, 20, 15, 15, 'red', "both", 'red'),
+    'green': (10, 35, 15, 15, 'green', "both", 'green')
 }
 
 

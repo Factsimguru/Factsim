@@ -35,7 +35,7 @@ import logging
 class FactsimScene(QGraphicsScene):
     def __init__(self):
         super().__init__()
-        self.setSceneRect(0, 0, 800, 600)
+        #self.setSceneRect(0, 0, 800, 600)
         self.current_connection = None
         self.current_pin = None
         self.connections_dict = {}  # Dictionary to store connections by frozenset of pins
@@ -206,7 +206,7 @@ class FactsimScene(QGraphicsScene):
         else:
             node = Node(node_type, pos=position,  node_id=node_id)
         self.addItem(node)
-        self.nodes_dict[node.name] = node
+        self.nodes_dict[node.node_id] = node
         #print(self.nodes_dict)
         return node
 
@@ -226,7 +226,7 @@ class FactsimScene(QGraphicsScene):
 
 
     # Method to create a connection programmatically
-    def create_connection(self, start_node, start_pin_name, end_node, end_pin_name, color):
+    def create_connection(self, start_node, start_pin_name, end_node, end_pin_name):
         start_pin = None
         end_pin = None
 
@@ -245,19 +245,21 @@ class FactsimScene(QGraphicsScene):
 
             # Check if the pins match in color and type
             if start_pin.brush().color() == end_pin.brush().color():
-                if ('input' in start_pin_name and 'output' in end_pin_name or
-                    'output' in start_pin_name and 'input' in end_pin_name):
-                    connection = Connection(start_pin, end_pin, color)
-                    self.addItem(connection)
-                    self.connections_dict[connection_key] = connection
-                    logging.info(f"Connection done between {start_pin_name} on Node {start_node.node_id} and "
-                                 f"{end_pin_name} on Node {end_node.node_id}")
-                else:
-                    logging.warning(f"Connection failed: Pin types do not match between {start_pin_name} on Node "
-                                    f"{start_node.node_id} and {end_pin_name} on Node {end_node.node_id}")
+                color = start_pin.brush().color()
+                connection = Connection(start_pin, end_pin, color)
+                self.addItem(connection)
+                self.connections_dict[connection_key] = connection
+                logging.info(f"Connection done between {start_pin_name} on Node {start_node.node_id} and "
+                             f"{end_pin_name} on Node {end_node.node_id}")
             else:
                 logging.warning(f"Connection failed: Colors do not match between {start_pin_name} on Node "
                                 f"{start_node.node_id} and {end_pin_name} on Node {end_node.node_id}")
+        else:
+            if not start_pin:
+                logging.warning(f"start pin {start_pin_name} does not exist on Node {start_node.name}")
+                
+            if not end_pin:
+                logging.warning(f"end pin {end_pin_name} does not exist on Node {end_node.name}")
 
                 
     def delete_connection(self, start_pin, end_pin):

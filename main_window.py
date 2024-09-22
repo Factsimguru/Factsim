@@ -145,7 +145,7 @@ class MainWindow(QMainWindow):
                         print(f"{entity}")
                         position =  QPointF(entity['position']['x']*100, entity['position']['y']*100)
                         node_id = (entity['entity_number'])
-                        print(node_id)
+                        #print(node_id)
                         if entity['name'] == 'decider-combinator':
                             self.view.scene().create_node("Decider", position, node_id=node_id)
                         elif entity['name'] == 'arithmetic-combinator':
@@ -156,13 +156,39 @@ class MainWindow(QMainWindow):
                             self.view.scene().create_node("Pole", position, node_id=node_id)
                             
                     for entity in self.bpdict.get('entities'):
-                        
+                        current_node = entity['entity_number']
                         if entity.get('connections').get('1'):
                             for color, connections in entity.get('connections').get('1').items():
                                 print(color, connections)
+                                for connection in connections:
+                                    orig = self.view.scene().nodes_dict[current_node]
+                                    dest = self.view.scene().nodes_dict[connection.get('entity_id')]
+                                    #print(orig,dest)
+                                    if connection.get('circuit_id') == 1:
+                                        self.view.scene().create_connection(orig, 'input_'+color, dest , 'input_'+color)
+                                    elif connection.get('circuit_id') == 2:
+                                        self.view.scene().create_connection(orig, 'input_'+color, dest , 'output_'+color)
+                                    else:
+                                        self.view.scene().create_connection(orig, 'input_'+color, dest , color)
+                                        self.view.scene().create_connection(orig, color, dest , color)
+                                        
+                                    
                         if entity.get('connections').get('2'):
                             for color, connections in entity.get('connections').get('2').items():
                                 print(color, connections)
+                                for connection in connections:
+                                    orig = self.view.scene().nodes_dict[current_node]
+                                    dest = self.view.scene().nodes_dict[connection.get('entity_id')]
+                                    #print(orig,dest)
+                                    if connection.get('circuit_id') == 1:
+                                        self.view.scene().create_connection(orig, 'output_'+color, dest , 'input_'+color)
+                                    elif connection.get('circuit_id') == 2:
+                                        self.view.scene().create_connection(orig, 'output_'+color, dest , 'output_'+color)
+                                    else:
+                                        self.view.scene().create_connection(orig, 'output_'+color, dest , color)
+                                        self.view.scene().create_connection(orig, color, dest , color)
+                                        
+                #self.view.scene().setSceneRect(self.view.scene().itemsBoundingRect())
 
                         
             except Exception as e:
