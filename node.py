@@ -24,6 +24,7 @@
 #######################################################################
 
 import logging
+import asyncio
 from PySide6.QtWidgets import QGraphicsItem, QComboBox, QGraphicsProxyWidget
 from PySide6.QtCore import Qt, QRectF, QPointF
 from PySide6.QtGui import QBrush, QPen, QColor, QPainter, QTransform
@@ -129,7 +130,7 @@ class Node(QGraphicsItem):
     def compute(self):
         if self.active:
             self.local_tick += 1
-    def handle_global_tick(self, tick):
+    async def handle_global_tick(self, tick):
         logging.info(f"Node {self.node_id} received global tick: {tick}")
             
 

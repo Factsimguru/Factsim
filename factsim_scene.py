@@ -273,11 +273,11 @@ class FactsimScene(QGraphicsScene):
         else:
             logging.warning(f"Connection between {self.get_pin_name(start_pin)} and {self.get_pin_name(end_pin)} not found.")
 
-    def update_global_tick(self, tick):
+    async def update_global_tick(self, tick):
         # Method to handle the global tick update
         logging.info(f"Updating nodes with new global tick: {tick}")
         for item in self.items():
             if isinstance(item, Node):
-                item.handle_global_tick(tick)
+                await item.handle_global_tick(tick)
 
 

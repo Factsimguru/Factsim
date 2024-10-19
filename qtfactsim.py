@@ -27,6 +27,8 @@
 import logging
 import sys
 from PySide6.QtWidgets import QApplication
+from qasync import QEventLoop
+import asyncio
 from main_window import MainWindow
 
 # Setup logging (optional logging)
@@ -34,10 +36,13 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    loop = QEventLoop(app)
+    asyncio.set_event_loop(loop)
 
     main_window = MainWindow()
     main_window.setWindowTitle("Factsim UI")
     main_window.setGeometry(100, 100, 1000, 600)
     main_window.show()
 
-    sys.exit(app.exec())
+    with loop:
+        loop.run_forever()

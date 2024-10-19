@@ -34,6 +34,8 @@ from PySide6.QtWidgets import (
     QMainWindow, QToolBar, QFileDialog, QMessageBox, QApplication
 )
 from factsim_view import FactsimView
+import asyncio
+from qasync import asyncSlot
 
 # Main Window with Toolbar for adding nodes
 class MainWindow(QMainWindow):
@@ -47,13 +49,16 @@ class MainWindow(QMainWindow):
         # Initialize a global tick
         self.global_tick = 0
 
-        # Connect the signal to a slot in FactsimScene
-        self.global_tick_changed.connect(self.view.scene().update_global_tick)
+       # Connect the signal to an async slot in FactsimScene
+        self.global_tick_changed.connect(self.on_global_tick_changed)
 
         # Create toolbars
         self.create_top_toolbar()
         self.create_left_toolbar()
 
+    @asyncSlot(int)
+    async def on_global_tick_changed(self, tick):
+        await self.view.scene().update_global_tick(tick)
         
 
     def create_top_toolbar(self):
