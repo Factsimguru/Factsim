@@ -150,13 +150,15 @@ class MainWindow(QMainWindow):
                         print(f"{entity}")
                         position =  QPointF(entity['position']['x']*100, entity['position']['y']*100)
                         node_id = (entity['entity_number'])
+                        direction = entity.get('direction')
+                        control_behavior = entity.get('control_behavior')
                         #print(node_id)
                         if entity['name'] == 'decider-combinator':
-                            self.view.scene().create_node("Decider", position, node_id=node_id)
+                            self.view.scene().create_node("Decider", position, node_id=node_id, direction=direction, control_behavior=control_behavior)
                         elif entity['name'] == 'arithmetic-combinator':
-                            self.view.scene().create_node("Arithmetic", position, node_id=node_id)
+                            self.view.scene().create_node("Arithmetic", position, node_id=node_id, direction=direction, control_behavior=control_behavior)
                         elif entity['name'] == 'constant-combinator':
-                            self.view.scene().create_node("Constant", position, node_id=node_id)
+                            self.view.scene().create_node("Constant", position, node_id=node_id, direction=direction, control_behavior=control_behavior)
                         if 'electric-pole' in entity['name'] or 'substation' in entity['name']:
                             self.view.scene().create_node("Pole", position, node_id=node_id)
                             

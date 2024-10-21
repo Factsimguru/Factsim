@@ -53,10 +53,12 @@ POLE_PINS = {
 class Node(QGraphicsItem):
     max_id = 0  # Class variable to count node instancestrack the max id
 
-    def __init__(self, node_type, color=QColor(150, 200, 150), pos=QPointF(100,100) , pins=DEFAULT_PINS, rect = QRectF(0, 0, 110, 50), node_id=None):
+    def __init__(self, node_type, color=QColor(150, 200, 150), pos=QPointF(100,100) , pins=DEFAULT_PINS, rect = QRectF(0, 0, 110, 50), node_id=None, direction=None, control_behavior=None):
         super().__init__()
         self.rect = rect  # Define the rectangle for the node
         self.node_type = node_type
+        self.direction=direction
+        self.control_behavior=control_behavior
         self.color = color  # Initialize the color attribute
         if not node_id: # Unique ID for each node
             Node.max_id += 1
@@ -78,6 +80,18 @@ class Node(QGraphicsItem):
         
         self.create_options_combobox()
         self.setPos(pos)
+
+        if not self.direction:
+            return
+        # Assign a rotation based on the direction (0 - north, 2 - east, 4 - south, 6 - west)
+        if self.direction == 0:  # North
+            self.setRotation(90)
+        elif self.direction == 2:  # East
+            self.setRotation(0)
+        elif self.direction == 4:  # South
+            self.setRotation(-90)
+        elif self.direction == 6:  # West
+            self.setRotation(180)
 
 
     def create_options_combobox(self):
@@ -150,18 +164,18 @@ class Node(QGraphicsItem):
 
 
 class Decider(Node):
-    def __init__(self, node_type, color=QColor(100, 100, 255),pos=QPointF(100,100), pins=DEFAULT_PINS, node_id=None):
-        super().__init__(node_type, color=color,pos=pos, pins=pins, node_id=node_id)
+    def __init__(self, node_type, color=QColor(100, 100, 255),pos=QPointF(100,100), pins=DEFAULT_PINS, node_id=None, direction=None, control_behavior=None):
+        super().__init__(node_type, color=color,pos=pos, pins=pins, node_id=node_id, direction=direction, control_behavior=control_behavior)
         self.name = "DEC" + " " + str(self.node_id)
         
 class Arithmetic(Node):
-    def __init__(self, node_type, color=QColor(107, 179, 0),pos=QPointF(100,100), pins=DEFAULT_PINS, node_id=None):
-        super().__init__(node_type, color=color, pos=pos, pins=pins, node_id=node_id)
+    def __init__(self, node_type, color=QColor(107, 179, 0),pos=QPointF(100,100), pins=DEFAULT_PINS, node_id=None, direction=None, control_behavior=None):
+        super().__init__(node_type, color=color, pos=pos, pins=pins, node_id=node_id, direction=direction, control_behavior=control_behavior)
         self.name = "ART" + " " + str(self.node_id)
 
 class Constant(Node):
-    def __init__(self, node_type, color=QColor(180,27,0), pos=QPointF(100,100), pins=OUT_PINS, rect=QRectF(0,0,50, 50), node_id=None):
-        super().__init__(node_type, color=color,pos=pos, pins=pins, rect=rect, node_id=node_id)
+    def __init__(self, node_type, color=QColor(180,27,0), pos=QPointF(100,100), pins=OUT_PINS, rect=QRectF(0,0,50, 50), node_id=None, direction=None, control_behavior=None):
+        super().__init__(node_type, color=color,pos=pos, pins=pins, rect=rect, node_id=node_id, direction=direction, control_behavior=control_behavior)
         self.name = "C" + " " + str(self.node_id)
     def create_options_combobox(self):
         pass
