@@ -53,7 +53,7 @@ POLE_PINS = {
 class Node(QGraphicsItem):
     max_id = 0  # Class variable to count node instancestrack the max id
 
-    def __init__(self, node_type, color=QColor(150, 200, 150), pos=QPointF(100,100) , pins=DEFAULT_PINS, rect = QRectF(0, 0, 110, 50), from_dict = False, node_id=None):
+    def __init__(self, node_type, color=QColor(150, 200, 150), pos=QPointF(100,100) , pins=DEFAULT_PINS, rect = QRectF(0, 0, 110, 50), node_id=None):
         super().__init__()
         self.rect = rect  # Define the rectangle for the node
         self.node_type = node_type
@@ -69,8 +69,8 @@ class Node(QGraphicsItem):
 
         self.pins = {}
         self.create_pins(pins)
-        self.local_tick = 0
         self.active = True
+        self.results = []       
 
         self.setFlag(QGraphicsItem.ItemIsMovable)
         self.setFlag(QGraphicsItem.ItemSendsGeometryChanges)
@@ -78,6 +78,7 @@ class Node(QGraphicsItem):
         
         self.create_options_combobox()
         self.setPos(pos)
+
 
     def create_options_combobox(self):
         # Create combobox for configuration
@@ -127,33 +128,45 @@ class Node(QGraphicsItem):
             if isinstance(scene, FactsimScene):
                 scene.update_connections()
         return super().itemChange(change, value)
-    def compute(self):
-        if self.active:
-            self.local_tick += 1
+
+    async def get_output_at_tick(self, tick):
+        if len(self.results) >= tick:
+            return self.results[tick]
+        await self.compute_to(tick)
+        
+    
+    async def compute_to(self, tick):
+        while len(self.results) < tick:
+            self.results.append({})
+        
     async def handle_global_tick(self, tick):
         logging.info(f"Node {self.node_id} received global tick: {tick}")
-            
+        await self.get_output_at_tick(tick)
+        logging.info(f"Node {self.node_id} arrived to local_tick tick: {len(self.results)}")
+        logging.info(f"With results: {self.results}")
+        
+        
 
 
 
 class Decider(Node):
-    def __init__(self, node_type, color=QColor(100, 100, 255),pos=QPointF(100,100), pins=DEFAULT_PINS, from_dict=False, node_id=None):
-        super().__init__(node_type, color=color,pos=pos, pins=pins, from_dict=from_dict, node_id=node_id)
+    def __init__(self, node_type, color=QColor(100, 100, 255),pos=QPointF(100,100), pins=DEFAULT_PINS, node_id=None):
+        super().__init__(node_type, color=color,pos=pos, pins=pins, node_id=node_id)
         self.name = "DEC" + " " + str(self.node_id)
         
 class Arithmetic(Node):
-    def __init__(self, node_type, color=QColor(107, 179, 0),pos=QPointF(100,100), pins=DEFAULT_PINS, from_dict=False, node_id=None):
-        super().__init__(node_type, color=color, pos=pos, pins=pins, from_dict=from_dict, node_id=node_id)
+    def __init__(self, node_type, color=QColor(107, 179, 0),pos=QPointF(100,100), pins=DEFAULT_PINS, node_id=None):
+        super().__init__(node_type, color=color, pos=pos, pins=pins, node_id=node_id)
         self.name = "ART" + " " + str(self.node_id)
 
 class Constant(Node):
-    def __init__(self, node_type, color=QColor(180,27,0), pos=QPointF(100,100), pins=OUT_PINS, rect=QRectF(0,0,50, 50), from_dict=False, node_id=None):
-        super().__init__(node_type, color=color,pos=pos, pins=pins, rect=rect, from_dict=from_dict, node_id=node_id)
+    def __init__(self, node_type, color=QColor(180,27,0), pos=QPointF(100,100), pins=OUT_PINS, rect=QRectF(0,0,50, 50), node_id=None):
+        super().__init__(node_type, color=color,pos=pos, pins=pins, rect=rect, node_id=node_id)
         self.name = "C" + " " + str(self.node_id)
     def create_options_combobox(self):
         pass
 
 class Pole(Constant):
-    def __init__(self, node_type, color=QColor(200,200,200), pos=QPointF(100,100), pins=POLE_PINS, rect=QRectF(0,0,30, 50), from_dict=False, node_id=None):
-        super().__init__(node_type, color=color,pos=pos, pins=pins, rect=rect, from_dict=from_dict, node_id=node_id)
+    def __init__(self, node_type, color=QColor(200,200,200), pos=QPointF(100,100), pins=POLE_PINS, rect=QRectF(0,0,30, 50), node_id=None):
+        super().__init__(node_type, color=color,pos=pos, pins=pins, rect=rect, node_id=node_id)
         self.name = "P" + str(self.node_id)
